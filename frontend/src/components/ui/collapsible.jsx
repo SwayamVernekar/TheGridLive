@@ -1,0 +1,34 @@
+// Naively converted from TypeScript — please review for correctness.
+"use client";
+
+import *"@radix-ui/react-collapsible@1.1.3";
+
+function Collapsible({
+  ...props
+}) {
+  return <CollapsiblePrimitive.Root data-slot="collapsible" {...props} />;
+}
+
+function CollapsibleTrigger({
+  ...props
+}) {
+  return (
+    <CollapsiblePrimitive.CollapsibleTrigger
+      data-slot="collapsible-trigger"
+      {...props}
+    />
+  );
+}
+
+function CollapsibleContent({
+  ...props
+}) {
+  return (
+    <CollapsiblePrimitive.CollapsibleContent
+      data-slot="collapsible-content"
+      {...props}
+    />
+  );
+}
+
+export { Collapsible, CollapsibleTrigger, CollapsibleContent };

@@ -1,0 +1,26 @@
+{
+  "name": "thegridlive",
+  "version": "1.0.0",
+  "description": "A full-stack Formula 1 web application with live data from the FastF1 Python library, featuring real-time race data, driver standings, telemetry, and more.",
+  "main": "eslint.config.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SwayamVernekar/TheGridLive.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/SwayamVernekar/TheGridLive/issues"
+  },
+  "homepage": "https://github.com/SwayamVernekar/TheGridLive#readme",
+  "dependencies": {
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "mongoose": "^8.19.2"
+  }
+}

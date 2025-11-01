@@ -26,6 +26,7 @@ import { About } from './pages/About';
 import { Contact } from './pages/Contact';
 import { Privacy } from './pages/Privacy';
 import { Terms } from './pages/Terms';
+import { Schedule } from './pages/Schedule';
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState('/');
@@ -137,6 +138,8 @@ export default function App() {
         return <Privacy />;
       case '/terms':
         return <Terms />;
+      case '/schedule':
+        return <Schedule onNavigate={setCurrentPage} />;
       default:
         return (
           <div className="text-center py-20">

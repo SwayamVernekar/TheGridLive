@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Trophy, TrendingUp, TrendingDown, Minus, Loader2 } from 'lucide-react';
+import { Trophy, TrendingUp, TrendingDown, Minus, Loader2, Award, Target, Zap } from 'lucide-react';
 import { fetchDriverStandings } from '../api/f1Api';
 
 export function DriverStandings() {
@@ -138,6 +138,35 @@ export function DriverStandings() {
                   <TrendingDown className="w-5 h-5 text-red-500" />
                 );
 
+                // Mock nationality flags (using emoji flags for simplicity)
+                const getNationalityFlag = (nationality) => {
+                  const flagMap = {
+                    'Dutch': '🇳🇱',
+                    'British': '🇬🇧',
+                    'Spanish': '🇪🇸',
+                    'French': '🇫🇷',
+                    'German': '🇩🇪',
+                    'Australian': '🇦🇺',
+                    'Mexican': '🇲🇽',
+                    'Finnish': '🇫🇮',
+                    'Canadian': '🇨🇦',
+                    'Thai': '🇹🇭',
+                    'Japanese': '🇯🇵',
+                    'Chinese': '🇨🇳',
+                    'Danish': '🇩🇰',
+                    'American': '🇺🇸'
+                  };
+                  return flagMap[nationality] || '🏁';
+                };
+
+                // Mock detailed stats (wins, podiums, fastest laps, pole positions)
+                const mockStats = {
+                  wins: Math.floor(Math.random() * 10),
+                  podiums: Math.floor(Math.random() * 15) + 5,
+                  fastestLaps: Math.floor(Math.random() * 8),
+                  polePositions: Math.floor(Math.random() * 12)
+                };
+
                 return (
                   <tr
                     key={driver.driverNumber || index}
@@ -151,10 +180,11 @@ export function DriverStandings() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        {index < 3 && <img src={driver.driverImage} alt={driver.fullName} className="w-10 h-10 rounded-full object-cover" />}
+                        <img src={driver.driverImage} alt={driver.fullName} className="w-10 h-10 rounded-full object-cover" />
                         <div>
-                          <div className="text-f1light font-bold">
+                          <div className="text-f1light font-bold flex items-center gap-2">
                             {driver.fullName}
+                            <span className="text-lg">{getNationalityFlag(driver.nationality)}</span>
                           </div>
                           <div className="text-f1light/60 text-sm uppercase">{driver.driverCode || driver.nationality}</div>
                         </div>
@@ -170,7 +200,23 @@ export function DriverStandings() {
                       </div>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <span className="text-f1red font-bold text-lg">{driver.points || 0}</span>
+                      <div className="flex flex-col items-end gap-1">
+                        <span className="text-f1red font-bold text-lg">{driver.points || 0}</span>
+                        <div className="flex gap-3 text-xs text-f1light/60">
+                          <span className="flex items-center gap-1">
+                            <Award className="w-3 h-3" />
+                            {mockStats.wins}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Target className="w-3 h-3" />
+                            {mockStats.podiums}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Zap className="w-3 h-3" />
+                            {mockStats.fastestLaps}
+                          </span>
+                        </div>
+                      </div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex justify-center">{trend}</div>

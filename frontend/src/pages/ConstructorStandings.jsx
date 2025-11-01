@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Trophy, Award, Loader2 } from 'lucide-react';
+import { Trophy, Award, Loader2, BarChart3 } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { fetchConstructorStandings } from '../api/f1Api';
 
 export function ConstructorStandings() {
@@ -166,6 +167,51 @@ export function ConstructorStandings() {
               })}
             </tbody>
           </table>
+        </div>
+      </div>
+
+      {/* Points Comparison Chart */}
+      <div className="bg-f1gray rounded-lg shadow-lg p-6">
+        <div className="flex items-center gap-3 mb-6">
+          <BarChart3 className="w-6 h-6 text-f1red" />
+          <h2 className="text-xl font-bold text-f1light">Points Comparison</h2>
+        </div>
+        <div className="h-80">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={standings.slice(0, 10).map(team => ({
+                name: team.name?.split(' ').pop() || team.team || 'Team',
+                points: team.points || 0,
+                color: `#${team.teamColor || 'DC0000'}`
+              }))}
+              margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+              <XAxis
+                dataKey="name"
+                stroke="#F1F5F9"
+                fontSize={12}
+                angle={-45}
+                textAnchor="end"
+                height={80}
+              />
+              <YAxis stroke="#F1F5F9" />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: '#1F2937',
+                  border: '1px solid #374151',
+                  borderRadius: '8px',
+                  color: '#F1F5F9'
+                }}
+                formatter={(value, name) => [value, 'Points']}
+              />
+              <Bar
+                dataKey="points"
+                fill="#DC0000"
+                radius={[4, 4, 0, 0]}
+              />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
       </div>
 

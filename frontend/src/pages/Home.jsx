@@ -148,9 +148,9 @@ export function Home({ onNavigate, favoriteDriver }) {
   return (
     <div className="space-y-6">
       {/* Grid Live Dashboard Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
         {/* Left Sidebar - Driver List */}
-        <div className="lg:col-span-3 space-y-4">
+        <div className="xl:col-span-3 lg:col-span-4 space-y-4">
           <motion.div
             className="glass-strong rounded-lg p-4"
             initial={{ opacity: 0, x: -20 }}
@@ -158,7 +158,30 @@ export function Home({ onNavigate, favoriteDriver }) {
             transition={{ duration: 0.5 }}
           >
             <h2 className="text-xl font-bold text-f1light mb-3">Driver Select</h2>
-            <div className="space-y-2 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
+
+            {/* Quick Filters */}
+            <div className="mb-4 flex flex-wrap gap-2">
+              <button
+                onClick={() => setActiveDriverId(drivers[0]?.driverCode || null)}
+                className="px-3 py-1 text-xs bg-f1red/20 text-f1red rounded-full hover:bg-f1red/30 transition-colors"
+              >
+                All Drivers
+              </button>
+              {[...new Set(drivers.map(d => d.constructorName))].slice(0, 4).map(team => (
+                <button
+                  key={team}
+                  onClick={() => {
+                    const teamDrivers = drivers.filter(d => d.constructorName === team);
+                    setActiveDriverId(teamDrivers[0]?.driverCode || null);
+                  }}
+                  className="px-3 py-1 text-xs bg-f1dark text-f1light rounded-full hover:bg-f1red/30 transition-colors"
+                >
+                  {team.split(' ')[0]}
+                </button>
+              ))}
+            </div>
+
+            <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
               {drivers.map((driver, index) => (
                 <motion.div
                   key={driver.driverCode}
@@ -325,85 +348,105 @@ export function Home({ onNavigate, favoriteDriver }) {
 
           {/* Telemetry Graphs */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Speed Graph */}
-            <AnimatePresence mode="wait">
+            {/* Loading State for Telemetry */}
+            {loading ? (
               <motion.div
-                key={`speed-${activeDriverId}`}
-                className="glass-strong rounded-lg p-6"
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                transition={{ duration: 0.5 }}
+                className="glass-strong rounded-lg p-6 col-span-2 flex items-center justify-center"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
               >
-                <h3 className="text-lg font-bold text-f1light mb-3">Lap Speed (km/h)</h3>
-                <ResponsiveContainer width="100%" height={200}>
-                  <AreaChart data={telemetryData}>
-                    <defs>
-                      <linearGradient id={`speedGradient-${activeDriverId}`} x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor={activeDriver.teamColor} stopOpacity={0.8}/>
-                        <stop offset="95%" stopColor={activeDriver.teamColor} stopOpacity={0.1}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid stroke="rgba(255,255,255,0.1)" />
-                    <XAxis dataKey="lap" stroke="#F5F5F5" style={{ fontSize: '12px' }} />
-                    <YAxis stroke="#F5F5F5" style={{ fontSize: '12px' }} />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: '#1E1E1E',
-                        border: '1px solid #DC0000',
-                        borderRadius: '4px',
-                        color: '#F5F5F5',
-                      }}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="speed"
-                      stroke={activeDriver.teamColor}
-                      strokeWidth={3}
-                      fill={`url(#speedGradient-${activeDriverId})`}
-                      animationDuration={1000}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
+                <div className="text-center">
+                  <motion.div
+                    className="w-8 h-8 border-4 border-f1red border-t-transparent rounded-full mx-auto mb-2"
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                  />
+                  <p className="text-f1light/60">Loading telemetry data...</p>
+                </div>
               </motion.div>
-            </AnimatePresence>
+            ) : (
+              <>
+                {/* Speed Graph */}
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={`speed-${activeDriverId}`}
+                    className="glass-strong rounded-lg p-6"
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ duration: 0.5 }}
+                  >
+                    <h3 className="text-lg font-bold text-f1light mb-3">Lap Speed (km/h)</h3>
+                    <ResponsiveContainer width="100%" height={200}>
+                      <AreaChart data={telemetryData}>
+                        <defs>
+                          <linearGradient id={`speedGradient-${activeDriverId}`} x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor={activeDriver.teamColor} stopOpacity={0.8}/>
+                            <stop offset="95%" stopColor={activeDriver.teamColor} stopOpacity={0.1}/>
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid stroke="rgba(255,255,255,0.1)" />
+                        <XAxis dataKey="lap" stroke="#F5F5F5" style={{ fontSize: '12px' }} />
+                        <YAxis stroke="#F5F5F5" style={{ fontSize: '12px' }} />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: '#1E1E1E',
+                            border: '1px solid #DC0000',
+                            borderRadius: '4px',
+                            color: '#F5F5F5',
+                          }}
+                        />
+                        <Area
+                          type="monotone"
+                          dataKey="speed"
+                          stroke={activeDriver.teamColor}
+                          strokeWidth={3}
+                          fill={`url(#speedGradient-${activeDriverId})`}
+                          animationDuration={1000}
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </motion.div>
+                </AnimatePresence>
 
-            {/* RPM Graph */}
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={`rpm-${activeDriverId}`}
-                className="glass-strong rounded-lg p-6"
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                transition={{ duration: 0.5 }}
-              >
-                <h3 className="text-lg font-bold text-f1light mb-3">Lap RPM</h3>
-                <ResponsiveContainer width="100%" height={200}>
-                  <LineChart data={telemetryData}>
-                    <CartesianGrid stroke="rgba(255,255,255,0.1)" />
-                    <XAxis dataKey="lap" stroke="#F5F5F5" style={{ fontSize: '12px' }} />
-                    <YAxis stroke="#F5F5F5" style={{ fontSize: '12px' }} />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: '#1E1E1E',
-                        border: '1px solid #DC0000',
-                        borderRadius: '4px',
-                        color: '#F5F5F5',
-                      }}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="rpm"
-                      stroke={activeDriver.teamColor}
-                      strokeWidth={3}
-                      dot={false}
-                      animationDuration={1000}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </motion.div>
-            </AnimatePresence>
+                {/* RPM Graph */}
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={`rpm-${activeDriverId}`}
+                    className="glass-strong rounded-lg p-6"
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ duration: 0.5 }}
+                  >
+                    <h3 className="text-lg font-bold text-f1light mb-3">Lap RPM</h3>
+                    <ResponsiveContainer width="100%" height={200}>
+                      <LineChart data={telemetryData}>
+                        <CartesianGrid stroke="rgba(255,255,255,0.1)" />
+                        <XAxis dataKey="lap" stroke="#F5F5F5" style={{ fontSize: '12px' }} />
+                        <YAxis stroke="#F5F5F5" style={{ fontSize: '12px' }} />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: '#1E1E1E',
+                            border: '1px solid #DC0000',
+                            borderRadius: '4px',
+                            color: '#F5F5F5',
+                          }}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="rpm"
+                          stroke={activeDriver.teamColor}
+                          strokeWidth={3}
+                          dot={false}
+                          animationDuration={1000}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </motion.div>
+                </AnimatePresence>
+              </>
+            )}
           </div>
 
           {/* AI Race Predictions - Keys to Victory */}

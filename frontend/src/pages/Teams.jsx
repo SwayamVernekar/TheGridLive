@@ -1,39 +1,313 @@
-import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion'; // Using 'framer-motion' for 'motion'
-import { Award, Trophy, TrendingUp, Users } from 'lucide-react';
-// Assuming ImageWithFallback is defined elsewhere and works as intended
-// import { ImageWithFallback } from '../components/figma/ImageWithFallback';
+import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Award, Trophy, TrendingUp, Users, Loader2, BarChart3, X, Zap, Target } from 'lucide-react';
+import { fetchTeams } from '../api/f1Api';
 
-// --- MOCK DATA/COMPONENTS (Interfaces removed) ---
-// Data shapes are defined implicitly in the constants below.
-
-const teams = [
-  { id: 1, name: "Red Bull Racing", color: "#0600EF", points: 730, wins: 18 },
-  { id: 2, name: "Mercedes AMG F1", color: "#00D2BE", points: 390, wins: 0 },
-  { id: 3, name: "Scuderia Ferrari", color: "#DC0000", points: 380, wins: 1 },
-  { id: 4, name: "McLaren", color: "#FF8700", points: 300, wins: 0 },
-  { id: 5, name: "Aston Martin", color: "#006F62", points: 200, wins: 0 },
-];
 const ImageWithFallback = ({ src, alt, className }) => (
   <img src={src} alt={alt} className={className} loading="lazy" />
 );
-// -------------------------------------------------------------------
+
+// Team logos mapping (using official F1 team logos)
+const teamLogos = {
+  'Red Bull Racing': 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/41/Red_Bull_Racing_logo.svg/200px-Red_Bull_Racing_logo.svg.png',
+  'Ferrari': 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/13/Scuderia_Ferrari_Logo.svg/200px-Scuderia_Ferrari_Logo.svg.png',
+  'McLaren': 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/66/McLaren_Racing_logo.svg/200px-McLaren_Racing_logo.svg.png',
+  'Aston Martin': 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7f/Aston_Martin_Aramco_Cognizant_Formula_One_Team_logo.svg/200px-Aston_Martin_Aramco_Cognizant_Formula_One_Team_logo.svg.png',
+  'Alpine': 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7d/Alpine_F1_Team_2021_Logo.svg/200px-Alpine_F1_Team_2021_Logo.svg.png',
+  'Williams': 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8c/Williams_Racing_2020_logo.svg/200px-Williams_Racing_2020_logo.svg.png',
+  'Sauber': 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/24/Kick_Sauber_Formula_1_Team_logo.svg/200px-Kick_Sauber_Formula_1_Team_logo.svg.png',
+  'Haas': 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2a/Haas_F1_Team_logo.svg/200px-Haas_F1_Team_logo.svg.png',
+  'RB': 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3b/Visa_Cash_App_RB_Formula_One_Team_logo.svg/200px-Visa_Cash_App_RB_Formula_One_Team_logo.svg.png'
+};
 
 
 export function Teams({ onNavigate }) {
-  // Removed TypeScript type annotation <number | null>
-  const [hoveredCard, setHoveredCard] = useState(null); 
-  
-  const maxPoints = Math.max(...teams.map(t => t.points));
-  const maxWins = Math.max(...teams.map(t => t.wins));
+  const [teams, setTeams] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [hoveredCard, setHoveredCard] = useState(null);
+  const [selectedTeams, setSelectedTeams] = useState([]);
+  const [showComparison, setShowComparison] = useState(false);
+
+  useEffect(() => {
+    const loadTeams = async () => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const response = await fetchTeams();
+
+        if (response.error) {
+          throw new Error(response.error);
+        }
+
+        if (!response.teams || response.teams.length === 0) {
+          throw new Error('No teams data available for this season');
+        }
+
+        setTeams(response.teams);
+      } catch (err) {
+        console.error('Error loading teams:', err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadTeams();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 text-f1red animate-spin mx-auto mb-4" />
+          <p className="text-f1light/60">Loading teams...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-red-500/10 border border-red-500/50 rounded-lg p-6">
+        <h3 className="text-red-500 font-bold mb-2">Error Loading Teams</h3>
+        <p className="text-f1light/80">{error}</p>
+        <p className="text-f1light/60 text-sm mt-2">
+          Make sure the backend is running and connected to the data source.
+        </p>
+        <button
+          onClick={() => window.location.reload()}
+          className="mt-4 px-4 py-2 bg-f1red text-white rounded hover:bg-f1red/80 transition-colors"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  const maxPoints = Math.max(...teams.map(t => t.points || 0), 1);
+  const maxWins = Math.max(...teams.map(t => t.wins || 0), 1);
+
+  const handleTeamSelect = (team) => {
+    if (selectedTeams.find(t => t.id === team.id)) {
+      setSelectedTeams(selectedTeams.filter(t => t.id !== team.id));
+    } else if (selectedTeams.length < 2) {
+      setSelectedTeams([...selectedTeams, team]);
+    }
+  };
+
+  // Team Comparison Modal Component
+  const TeamComparisonModal = ({ teams: comparisonTeams, onClose }) => {
+    if (!comparisonTeams || comparisonTeams.length !== 2) return null;
+
+    const [team1, team2] = comparisonTeams;
+    const stats = [
+      { key: 'points', label: 'Points', icon: Award },
+      { key: 'wins', label: 'Wins', icon: Trophy },
+      { key: 'podiums', label: 'Podiums', icon: TrendingUp },
+      { key: 'polePositions', label: 'Pole Positions', icon: Target },
+    ];
+
+    return (
+      <AnimatePresence>
+        <motion.div
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onClick={onClose}
+        >
+          <motion.div
+            className="glass-strong rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.9, opacity: 0 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-f1light">Team Comparison</h2>
+                <motion.button
+                  onClick={onClose}
+                  className="p-2 rounded-lg hover:bg-f1light/10 transition-colors"
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                >
+                  <X className="w-6 h-6 text-f1light" />
+                </motion.button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                {[team1, team2].map((team, index) => (
+                  <motion.div
+                    key={team.id}
+                    className="glass-light rounded-lg p-4"
+                    initial={{ opacity: 0, x: index === 0 ? -20 : 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.2 }}
+                  >
+                    <div className="flex items-center gap-3 mb-4">
+                      {team.teamLogo && (
+                        <img src={team.teamLogo} alt={team.name} className="w-12 h-12 object-contain" />
+                      )}
+                      <div>
+                        <h3 className="text-xl font-bold text-f1light">{team.name}</h3>
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="w-3 h-3 rounded-full"
+                            style={{ backgroundColor: team.teamColor }}
+                          />
+                          <span className="text-f1light/60">#{index === 0 ? '1' : '2'}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="space-y-3">
+                      {stats.map((stat) => (
+                        <div key={stat.key} className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <stat.icon className="w-4 h-4 text-f1red" />
+                            <span className="text-f1light/80 text-sm">{stat.label}</span>
+                          </div>
+                          <span className="font-bold text-f1red">{team[stat.key] || 0}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+
+              <div className="space-y-4">
+                <h3 className="text-lg font-bold text-f1light">Head-to-Head Comparison</h3>
+                {stats.map((stat) => {
+                  const val1 = team1[stat.key] || 0;
+                  const val2 = team2[stat.key] || 0;
+                  const max = Math.max(val1, val2, 1);
+                  const winner = val1 > val2 ? team1 : val2 > val1 ? team2 : null;
+
+                  return (
+                    <div key={stat.key} className="space-y-2">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-f1light/80">{stat.label}</span>
+                        <span className="text-f1red font-bold">
+                          {winner ? `${winner.name} leads` : 'Tied'}
+                        </span>
+                      </div>
+                      <div className="flex gap-2">
+                        <div className="flex-1 bg-f1dark rounded-full h-3 overflow-hidden">
+                          <motion.div
+                            className="h-full rounded-full"
+                            style={{ backgroundColor: team1.teamColor }}
+                            initial={{ width: 0 }}
+                            animate={{ width: `${(val1 / max) * 100}%` }}
+                            transition={{ duration: 1, delay: 0.5 }}
+                          />
+                        </div>
+                        <div className="flex-1 bg-f1dark rounded-full h-3 overflow-hidden">
+                          <motion.div
+                            className="h-full rounded-full"
+                            style={{ backgroundColor: team2.teamColor }}
+                            initial={{ width: 0 }}
+                            animate={{ width: `${(val2 / max) * 100}%` }}
+                            transition={{ duration: 1, delay: 0.5 }}
+                          />
+                        </div>
+                      </div>
+                      <div className="flex justify-between text-xs text-f1light/60">
+                        <span>{team1.name}: {val1}</span>
+                        <span>{team2.name}: {val2}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </motion.div>
+        </motion.div>
+      </AnimatePresence>
+    );
+  };
 
   return (
     <div className="p-4 md:p-8">
+      {/* Team Comparison Modal */}
+      <AnimatePresence>
+        {showComparison && (
+          <TeamComparisonModal
+            teams={selectedTeams}
+            onClose={() => setShowComparison(false)}
+          />
+        )}
+      </AnimatePresence>
+
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-f1light mb-2">F1 Teams</h1>
-        <p className="text-f1light/60">All constructor teams competing in the 2025 season</p>
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <div>
+            <h1 className="text-4xl font-extrabold text-f1light mb-2 bg-gradient-to-r from-f1red to-f1light bg-clip-text text-transparent">
+              F1 Constructor Teams
+            </h1>
+            <p className="text-f1light/70 text-lg">Elite racing teams competing in the 2025 Formula 1 World Championship</p>
+          </div>
+          <div className="flex items-center gap-4">
+            <motion.button
+              className={`px-6 py-3 rounded-xl font-bold transition-all duration-300 ${
+                selectedTeams.length === 2
+                  ? 'bg-gradient-to-r from-f1red to-red-600 text-f1light shadow-lg hover:shadow-xl'
+                  : 'bg-f1dark/50 text-f1light/60 cursor-not-allowed backdrop-blur-sm'
+              }`}
+              whileHover={selectedTeams.length === 2 ? { scale: 1.05, y: -2 } : {}}
+              whileTap={selectedTeams.length === 2 ? { scale: 0.95 } : {}}
+              onClick={() => selectedTeams.length === 2 && setShowComparison(true)}
+              disabled={selectedTeams.length !== 2}
+            >
+              <BarChart3 className="w-5 h-5 inline mr-2" />
+              Compare Teams ({selectedTeams.length}/2)
+            </motion.button>
+          </div>
+        </div>
+
+        {/* Stats Overview */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
+          <motion.div
+            className="glass-light rounded-lg p-4 text-center"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+          >
+            <div className="text-2xl font-bold text-f1red">{teams.length}</div>
+            <div className="text-f1light/60 text-sm">Teams</div>
+          </motion.div>
+          <motion.div
+            className="glass-light rounded-lg p-4 text-center"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+          >
+            <div className="text-2xl font-bold text-f1red">{teams.reduce((sum, t) => sum + (t.points || 0), 0)}</div>
+            <div className="text-f1light/60 text-sm">Total Points</div>
+          </motion.div>
+          <motion.div
+            className="glass-light rounded-lg p-4 text-center"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+          >
+            <div className="text-2xl font-bold text-f1red">{teams.reduce((sum, t) => sum + (t.wins || 0), 0)}</div>
+            <div className="text-f1light/60 text-sm">Total Wins</div>
+          </motion.div>
+          <motion.div
+            className="glass-light rounded-lg p-4 text-center"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+          >
+            <div className="text-2xl font-bold text-f1red">{teams.reduce((sum, t) => sum + (t.polePositions || 0), 0)}</div>
+            <div className="text-f1light/60 text-sm">Pole Positions</div>
+          </motion.div>
+        </div>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-6">
         {teams.map((team, index) => (
           <motion.div
             key={team.id}
@@ -41,20 +315,20 @@ export function Teams({ onNavigate }) {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: index * 0.1 }}
-            
+
             // Simplified 3D-like hover transformation for reliability
-            whileHover={{ scale: 1.05, boxShadow: '0 20px 40px rgba(0,0,0,0.5)' }} 
-            
+            whileHover={{ scale: 1.05, boxShadow: '0 20px 40px rgba(0,0,0,0.5)' }}
+
             onHoverStart={() => setHoveredCard(team.id)}
             onHoverEnd={() => setHoveredCard(null)}
             onClick={() => onNavigate?.(`/team/${team.id}`)}
           >
             {/* Team color accent top */}
-            <div 
+            <div
               className="absolute top-0 left-0 right-0 h-1"
-              style={{ 
-                background: `linear-gradient(90deg, transparent, ${team.color}, transparent)`,
-                boxShadow: `0 0 10px ${team.color}`,
+              style={{
+                background: `linear-gradient(90deg, transparent, ${team.teamColor || '#DC0000'}, transparent)`,
+                boxShadow: `0 0 10px ${team.teamColor || '#DC0000'}`,
               }}
             />
 
@@ -62,20 +336,58 @@ export function Teams({ onNavigate }) {
             <motion.div
               className="absolute inset-0 rounded-xl"
               initial={{ opacity: 0 }}
-              animate={{ opacity: hoveredCard === team.id ? 1 : 0 }} // Corrected conditional animation
+              animate={{ opacity: hoveredCard === team.id ? 1 : 0 }}
               transition={{ duration: 0.3 }}
               style={{
-                boxShadow: `0 0 30px ${team.color}`,
+                boxShadow: `0 0 30px ${team.teamColor || '#DC0000'}`,
               }}
             />
 
             <div className="p-6 relative z-10">
+              {/* Position and Team Logo */}
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="text-2xl font-bold text-f1red">#{index + 1}</div>
+                  {team.teamLogo && (
+                    <motion.img
+                      src={team.teamLogo}
+                      alt={`${team.name} logo`}
+                      className="w-12 h-12 object-contain"
+                      whileHover={{ scale: 1.1 }}
+                      transition={{ duration: 0.2 }}
+                    />
+                  )}
+                </div>
+                {/* Selection checkbox */}
+                <motion.button
+                  className={`w-6 h-6 rounded border-2 flex items-center justify-center ${
+                    selectedTeams.find(t => t.id === team.id)
+                      ? 'bg-f1red border-f1red'
+                      : 'border-f1light/40 hover:border-f1light/80'
+                  }`}
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleTeamSelect(team);
+                  }}
+                >
+                  {selectedTeams.find(t => t.id === team.id) && (
+                    <motion.div
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      className="w-3 h-3 bg-f1light rounded-sm"
+                    />
+                  )}
+                </motion.button>
+              </div>
+
               {/* Team Car Image */}
-              <div className="relative w-full h-40 mb-4 rounded-lg overflow-hidden">
-                <div 
+              <div className="relative w-full h-32 mb-4 rounded-lg overflow-hidden">
+                <div
                   className="absolute inset-0"
-                  style={{ 
-                    background: `linear-gradient(135deg, ${team.color}20, ${team.color}40)`,
+                  style={{
+                    background: `linear-gradient(135deg, ${team.teamColor || '#DC0000'}20, ${team.teamColor || '#DC0000'}40)`,
                   }}
                 />
                 <motion.div
@@ -83,12 +395,12 @@ export function Teams({ onNavigate }) {
                   transition={{ duration: 0.3 }}
                 >
                   <ImageWithFallback
-                    src={`https://source.unsplash.com/600x400/?f1car,racing,speed,${team.id}`}
+                    src={team.carImage || `https://source.unsplash.com/600x400/?f1car,racing,speed,${team.name?.replace(/\s+/g, '').toLowerCase()}`}
                     alt={team.name}
                     className="w-full h-full object-cover mix-blend-luminosity opacity-80"
                   />
                 </motion.div>
-                
+
                 {/* Podium indicator for top 3 */}
                 {index < 3 && (
                   <motion.div
@@ -104,15 +416,15 @@ export function Teams({ onNavigate }) {
 
               {/* Team Name */}
               <div className="flex items-center justify-center gap-2 mb-6">
-                <motion.div 
+                <motion.div
                   className="w-4 h-4 rounded"
-                  style={{ backgroundColor: team.color }}
-                  animate={{ 
-                    boxShadow: hoveredCard === team.id ? `0 0 15px ${team.color}` : 'none', // Corrected conditional box shadow
+                  style={{ backgroundColor: team.teamColor || '#DC0000' }}
+                  animate={{
+                    boxShadow: hoveredCard === team.id ? `0 0 15px ${team.teamColor || '#DC0000'}` : 'none',
                   }}
                   transition={{ duration: 0.3 }}
                 />
-                <h3 className="text-xl font-bold text-f1light">{team.name}</h3>
+                <h3 className="text-lg font-bold text-f1light">{team.name}</h3>
               </div>
 
               {/* Animated Stats */}
@@ -124,16 +436,16 @@ export function Teams({ onNavigate }) {
                       <Award className="w-4 h-4 text-f1red" />
                       <span className="text-f1light/80 text-sm">Points</span>
                     </div>
-                    <span className="font-bold text-f1red">{team.points}</span>
+                    <span className="font-bold text-f1red">{team.points || 0}</span>
                   </div>
                   <div className="h-2 bg-f1dark rounded-full overflow-hidden">
-                    <motion.div 
+                    <motion.div
                       className="h-full rounded-full"
-                      style={{ 
-                        background: `linear-gradient(90deg, ${team.color}, #DC0000)`,
+                      style={{
+                        background: `linear-gradient(90deg, ${team.teamColor || '#DC0000'}, #DC0000)`,
                       }}
                       initial={{ width: '0%' }}
-                      animate={{ width: `${(team.points / maxPoints) * 100}%` }}
+                      animate={{ width: `${((team.points || 0) / maxPoints) * 100}%` }}
                       transition={{ duration: 1.5, delay: 0.5 }}
                     />
                   </div>
@@ -146,18 +458,40 @@ export function Teams({ onNavigate }) {
                       <TrendingUp className="w-4 h-4 text-f1red" />
                       <span className="text-f1light/80 text-sm">Race Wins</span>
                     </div>
-                    <span className="font-bold text-f1red">{team.wins}</span>
+                    <span className="font-bold text-f1red">{team.wins || 0}</span>
                   </div>
                   <div className="h-2 bg-f1dark rounded-full overflow-hidden">
-                    <motion.div 
+                    <motion.div
                       className="h-full rounded-full"
-                      style={{ 
-                        background: `linear-gradient(90deg, ${team.color}, #00D2BE)`,
+                      style={{
+                        background: `linear-gradient(90deg, ${team.teamColor || '#DC0000'}, #00D2BE)`,
                       }}
                       initial={{ width: '0%' }}
-                      animate={{ width: `${(team.wins / maxWins) * 100}%` }}
+                      animate={{ width: `${((team.wins || 0) / maxWins) * 100}%` }}
                       transition={{ duration: 1.5, delay: 0.7 }}
                     />
+                  </div>
+                </div>
+
+                {/* Podiums */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <Trophy className="w-4 h-4 text-f1red" />
+                      <span className="text-f1light/80 text-sm">Podiums</span>
+                    </div>
+                    <span className="font-bold text-f1red">{team.podiums || 0}</span>
+                  </div>
+                </div>
+
+                {/* Pole Positions */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <Award className="w-4 h-4 text-f1red" />
+                      <span className="text-f1light/80 text-sm">Pole Positions</span>
+                    </div>
+                    <span className="font-bold text-f1red">{team.polePositions || 0}</span>
                   </div>
                 </div>
               </div>
@@ -167,7 +501,7 @@ export function Teams({ onNavigate }) {
                 className="w-full flex items-center justify-center gap-2 mt-4 py-2 rounded-lg bg-f1red text-f1light font-bold hover:bg-f1red/80 transition-colors"
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.98 }}
-                // onClick handler is handled by the parent motion.div
+                onClick={() => onNavigate?.(`/team/${team.id}`)}
               >
                 <Users className="w-4 h-4" />
                 View Team Details

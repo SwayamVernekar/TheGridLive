@@ -7,6 +7,14 @@ import cors from 'cors';
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import fetch from 'node-fetch';
+import Telemetry from './models/Telemetry.js';
+import ChatRoom from './models/ChatRoom.js';
+import User from './models/User.js';
+import DriverStandings from './models/DriverStandings.js';
+import ConstructorStandings from './models/ConstructorStandings.js';
+import Drivers from './models/Drivers.js';
+import Schedule from './models/Schedule.js';
+import RaceResults from './models/RaceResults.js';
 
 dotenv.config();
 const app = express();
@@ -18,8 +26,9 @@ const PORT = process.env.PORT || 5002;
 // ============================================
 // External API Configuration
 // ============================================
+const ERGAST_API_URL = 'https://ergast.com/api/f1';
 const FASTF1_API_URL = process.env.PYTHON_API_URL || 'http://localhost:5003/api/v1'; // FastF1 Python service
-const CURRENT_YEAR = 2024; // Update to 2025 when season starts
+const CURRENT_YEAR = 2025; // Update to 2025 when season starts
 const NEWS_API_KEY = process.env.NEWS_API_KEY || ''; // User provides this
 const NEWS_API_URL = 'https://newsapi.org/v2';
 
@@ -36,6 +45,48 @@ const cache = {
   raceResults: {}
 };
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+// Rate limiting configuration
+const RATE_LIMIT_REQUESTS = 5; // Temporarily set to 5 for testing
+const RATE_LIMIT_WINDOW = 60 * 60 * 1000; // 1 hour in milliseconds
+const requestCounts = new Map(); // Track requests per IP
+
+// Rate limiting middleware
+function rateLimit(req, res, next) {
+  const clientIP = req.ip || req.connection.remoteAddress || 'unknown';
+  const now = Date.now();
+  const windowStart = now - RATE_LIMIT_WINDOW;
+
+  // Get or initialize request count for this IP
+  if (!requestCounts.has(clientIP)) {
+    requestCounts.set(clientIP, []);
+  }
+
+  const requests = requestCounts.get(clientIP);
+
+  // Remove old requests outside the window
+  const validRequests = requests.filter(timestamp => timestamp > windowStart);
+  requestCounts.set(clientIP, validRequests);
+
+  // Check if under limit
+  if (validRequests.length >= RATE_LIMIT_REQUESTS) {
+    console.log(`🚫 Rate limit exceeded for IP: ${clientIP}`);
+    return res.status(429).json({
+      error: 'Too many requests',
+      message: `Rate limit exceeded. Maximum ${RATE_LIMIT_REQUESTS} requests per hour.`,
+      retryAfter: Math.ceil((validRequests[0] + RATE_LIMIT_WINDOW - now) / 1000)
+    });
+  }
+
+  // Add current request timestamp
+  validRequests.push(now);
+  requestCounts.set(clientIP, validRequests);
+
+  next();
+}
+
+// Apply rate limiting to all API routes
+app.use('/api/', rateLimit);
 
 function isCacheValid(cacheEntry) {
   return cacheEntry.data && (Date.now() - cacheEntry.timestamp < CACHE_DURATION);
@@ -83,28 +134,45 @@ function getDriverImage(driverCode, driverSurname) {
 }
 
 // ============================================
+// Ergast API Helper Functions
+// ============================================
+async function fetchFromErgast(endpoint) {
+  try {
+    const response = await fetch(`${ERGAST_API_URL}/${endpoint}.json`);
+    if (!response.ok) {
+      throw new Error(`Ergast API error: ${response.status}`);
+    }
+    const data = await response.json();
+    return data.MRData;
+  } catch (error) {
+    console.error('Ergast fetch error:', error);
+    throw error;
+  }
+}
+
+// ============================================
 // FastF1 API Helper Functions
 // ============================================
 async function fetchFromFastF1(endpoint) {
   const url = `${FASTF1_API_URL}/${endpoint}`;
   console.log('  [fetchFromFastF1] Starting fetch...');
   console.log('  [fetchFromFastF1] Full URL:', url);
-  
+
   try {
     console.log('  [fetchFromFastF1] Sending HTTP request...');
     const response = await fetch(url);
     console.log('  [fetchFromFastF1] Response received');
     console.log('  [fetchFromFastF1] Status:', response.status, response.statusText);
-    
+
     if (!response.ok) {
       throw new Error(`FastF1 API error: ${response.status} ${response.statusText}`);
     }
-    
+
     console.log('  [fetchFromFastF1] Parsing JSON...');
     const data = await response.json();
     console.log('  [fetchFromFastF1] JSON parsed successfully');
     console.log('  [fetchFromFastF1] Response keys:', Object.keys(data));
-    
+
     return data;
   } catch (error) {
     console.error('  [fetchFromFastF1] ❌ ERROR ❌');
@@ -119,22 +187,12 @@ async function fetchFromFastF1(endpoint) {
 }
 
 // ============================================
-// MongoDB Schema (User Data)
+// MongoDB Connection
 // ============================================
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/f1app';
+const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/f1_telemetry';
 mongoose.connect(MONGO_URI)
   .then(() => console.log('✅ MongoDB connected'))
   .catch(err => console.log('⚠️  MongoDB optional - running without database:', err.message));
-
-const UserSchema = new mongoose.Schema({
-  email: { type: String, required: true, unique: true },
-  favoriteDriver: String,
-  favoriteTeam: String,
-  preferences: Object,
-  createdAt: { type: Date, default: Date.now }
-});
-
-const User = mongoose.model('User', UserSchema);
 
 // ============================================
 // Mock Data for Historical Pages (F1 Rewind)
@@ -271,13 +329,13 @@ app.get('/api/data/standings/drivers', async (req, res) => {
   console.log('Timestamp:', new Date().toISOString());
   console.log('Request URL:', req.url);
   console.log('Request Query:', req.query);
-  
-  const year = req.query.year || CURRENT_YEAR; // Move outside try block
+
+  const year = req.query.year || CURRENT_YEAR;
   console.log('Year for standings:', year);
-  
+
   try {
     const cacheKey = `driverStandings_${year}`;
-    
+
     // Check cache
     console.log('Checking cache for key:', cacheKey);
     if (isCacheValid(cache.driverStandings)) {
@@ -285,54 +343,54 @@ app.get('/api/data/standings/drivers', async (req, res) => {
       console.log('Cached data preview:', JSON.stringify(cache.driverStandings.data).substring(0, 200));
       return res.json(cache.driverStandings.data);
     }
-    console.log('✗ Cache miss or expired. Fetching from FastF1...');
+    console.log('✗ Cache miss or expired. Fetching from Ergast...');
 
-    // Fetch from FastF1
-    console.log('Fetching data from FastF1 API...');
-    const data = await fetchFromFastF1(`standings?year=${year}`);
-    console.log('✓ Received response from FastF1');
-    console.log('Response data structure:', Object.keys(data));
-    
-    if (!data.standings || data.standings.length === 0) {
+    // Fetch from Ergast
+    console.log('Fetching data from Ergast API...');
+    const data = await fetchFromErgast(`${year}/driverStandings`);
+    console.log('✓ Received response from Ergast');
+    const standings = data.StandingsTable.StandingsLists[0];
+
+    if (!standings) {
       console.log('⚠ No standings available for year:', year);
       return res.json({ standings: [], year, message: 'No standings available yet' });
     }
 
-    console.log('Number of drivers in standings:', data.standings.length);
+    console.log('Number of drivers in standings:', standings.DriverStandings.length);
     console.log('Processing driver standings...');
-    
-    const driverStandings = data.standings.map((entry, index) => {
+
+    const driverStandings = standings.DriverStandings.map((entry, index) => {
       if (index === 0) {
         console.log('Sample entry (first driver):', JSON.stringify(entry, null, 2));
       }
       return {
-        position: entry.position,
-        points: entry.points,
-        wins: 0, // FastF1 doesn't provide this in standings
-        driverId: entry.driver ? entry.driver.toLowerCase().replace(/\s+/g, '_') : '',
-        driverCode: entry.driver,
-        driverNumber: entry.driverNumber || '',
-        givenName: entry.firstName || '',
-        familyName: entry.lastName || '',
-        fullName: entry.fullName || `${entry.firstName} ${entry.lastName}`,
-        dateOfBirth: '',
-        nationality: '',
-        constructorId: entry.team ? entry.team.toLowerCase().replace(/\s+/g, '_') : '',
-        constructorName: entry.team || '',
-        teamColor: entry.teamColor ? `#${entry.teamColor}` : getTeamColor(entry.team),
-        driverImage: getDriverImage(entry.driver, entry.lastName)
+        position: parseInt(entry.position),
+        points: parseFloat(entry.points),
+        wins: parseInt(entry.wins),
+        driverId: entry.Driver.driverId,
+        driverCode: entry.Driver.code,
+        driverNumber: entry.Driver.permanentNumber || '',
+        givenName: entry.Driver.givenName,
+        familyName: entry.Driver.familyName,
+        fullName: `${entry.Driver.givenName} ${entry.Driver.familyName}`,
+        dateOfBirth: entry.Driver.dateOfBirth,
+        nationality: entry.Driver.nationality,
+        constructorId: entry.Constructors[0].constructorId,
+        constructorName: entry.Constructors[0].name,
+        teamColor: getTeamColor(entry.Constructors[0].constructorId),
+        driverImage: getDriverImage(entry.Driver.code, entry.Driver.familyName)
       };
     });
 
     console.log('✓ Processed', driverStandings.length, 'driver entries');
     console.log('Sample processed driver:', JSON.stringify(driverStandings[0], null, 2));
-    
+
     const result = { standings: driverStandings, year: parseInt(year), lastUpdate: new Date().toISOString() };
     console.log('Final result structure:', Object.keys(result));
     console.log('Updating cache...');
     updateCache('driverStandings', result);
     console.log('✓ Cache updated');
-    
+
     console.log('Sending response to frontend...');
     console.log('Response size:', JSON.stringify(result).length, 'bytes');
     res.json(result);
@@ -731,8 +789,115 @@ app.get('/api/data/stats', async (req, res) => {
   }
 });
 
-// User Profile Routes
-app.get('/api/user/profile/:email', async (req, res) => {
+
+
+// ============================================
+// Telemetry Routes (MongoDB)
+// ============================================
+
+// Save telemetry data
+app.post('/api/telemetry', async (req, res) => {
+  try {
+    const telemetryData = req.body;
+    const telemetry = new Telemetry(telemetryData);
+    await telemetry.save();
+    res.status(201).json({ message: 'Telemetry data saved successfully', telemetry });
+  } catch (error) {
+    console.error('Save telemetry error:', error);
+    res.status(500).json({ error: 'Failed to save telemetry data', message: error.message });
+  }
+});
+
+// Get telemetry data
+app.get('/api/telemetry', async (req, res) => {
+  try {
+    const { driver, session, year, event } = req.query;
+    const query = {};
+    if (driver) query.driver = driver;
+    if (session) query.session = session;
+    if (year) query.year = parseInt(year);
+    if (event) query.event = event;
+
+    const telemetry = await Telemetry.find(query).sort({ timestamp: -1 });
+    res.json(telemetry);
+  } catch (error) {
+    console.error('Get telemetry error:', error);
+    res.status(500).json({ error: 'Failed to fetch telemetry data', message: error.message });
+  }
+});
+
+// ============================================
+// Chat Room Routes (MongoDB)
+// ============================================
+
+// Get all chat rooms
+app.get('/api/chat/rooms', async (req, res) => {
+  try {
+    const rooms = await ChatRoom.find({}).sort({ lastActivity: -1 });
+    res.json(rooms);
+  } catch (error) {
+    console.error('Get chat rooms error:', error);
+    res.status(500).json({ error: 'Failed to fetch chat rooms', message: error.message });
+  }
+});
+
+// Create a new chat room
+app.post('/api/chat/rooms', async (req, res) => {
+  try {
+    const { name, description, type, createdBy } = req.body;
+    const room = new ChatRoom({ name, description, type, createdBy });
+    await room.save();
+    res.status(201).json(room);
+  } catch (error) {
+    console.error('Create chat room error:', error);
+    res.status(500).json({ error: 'Failed to create chat room', message: error.message });
+  }
+});
+
+// Get messages for a specific room
+app.get('/api/chat/rooms/:roomId/messages', async (req, res) => {
+  try {
+    const { roomId } = req.params;
+    const room = await ChatRoom.findById(roomId);
+    if (!room) {
+      return res.status(404).json({ error: 'Chat room not found' });
+    }
+    res.json(room.messages);
+  } catch (error) {
+    console.error('Get room messages error:', error);
+    res.status(500).json({ error: 'Failed to fetch messages', message: error.message });
+  }
+});
+
+// Add message to a room
+app.post('/api/chat/rooms/:roomId/messages', async (req, res) => {
+  try {
+    const { roomId } = req.params;
+    const { userId, username, message } = req.body;
+
+    const room = await ChatRoom.findById(roomId);
+    if (!room) {
+      return res.status(404).json({ error: 'Chat room not found' });
+    }
+
+    const newMessage = { userId, username, message };
+    room.messages.push(newMessage);
+    room.lastActivity = new Date();
+    await room.save();
+
+    res.status(201).json(newMessage);
+  } catch (error) {
+    console.error('Add message error:', error);
+    res.status(500).json({ error: 'Failed to add message', message: error.message });
+  }
+});
+
+// ============================================
+// User Routes (MongoDB)
+// ============================================
+
+// Get user profile
+app.get('/api/users/:email', async (req, res) => {
   try {
     const user = await User.findOne({ email: req.params.email });
     if (!user) {
@@ -740,28 +905,52 @@ app.get('/api/user/profile/:email', async (req, res) => {
     }
     res.json(user);
   } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch profile', message: error.message });
+    console.error('Get user error:', error);
+    res.status(500).json({ error: 'Failed to fetch user', message: error.message });
   }
 });
 
-app.post('/api/user/profile', async (req, res) => {
+// Create or update user profile
+app.post('/api/users', async (req, res) => {
   try {
-    const { email, favoriteDriver, favoriteTeam, preferences } = req.body;
-    
+    const { email, username, favoriteDriver, favoriteTeam, preferences } = req.body;
+
     let user = await User.findOne({ email });
     if (user) {
+      user.username = username || user.username;
       user.favoriteDriver = favoriteDriver || user.favoriteDriver;
       user.favoriteTeam = favoriteTeam || user.favoriteTeam;
       user.preferences = preferences || user.preferences;
+      user.lastSeen = new Date();
       await user.save();
     } else {
-      user = new User({ email, favoriteDriver, favoriteTeam, preferences });
+      user = new User({ email, username, favoriteDriver, favoriteTeam, preferences });
       await user.save();
     }
-    
+
     res.json(user);
   } catch (error) {
-    res.status(500).json({ error: 'Failed to save profile', message: error.message });
+    console.error('Save user error:', error);
+    res.status(500).json({ error: 'Failed to save user', message: error.message });
+  }
+});
+
+// Update user online status
+app.put('/api/users/:email/status', async (req, res) => {
+  try {
+    const { isOnline } = req.body;
+    const user = await User.findOneAndUpdate(
+      { email: req.params.email },
+      { isOnline, lastSeen: new Date() },
+      { new: true }
+    );
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    res.json(user);
+  } catch (error) {
+    console.error('Update user status error:', error);
+    res.status(500).json({ error: 'Failed to update user status', message: error.message });
   }
 });
 
@@ -772,27 +961,27 @@ app.get('/api/data/telemetry/:driver', async (req, res) => {
   try {
     const { driver } = req.params;
     const { year, event, session } = req.query;
-    
+
     const queryParams = new URLSearchParams();
     if (year) queryParams.append('year', year);
     if (event) queryParams.append('event', event);
     if (session) queryParams.append('session', session);
-    
-    const url = `${PYTHON_API_URL}/telemetry/${driver}?${queryParams.toString()}`;
+
+    const url = `${FASTF1_API_URL}/telemetry/${driver}?${queryParams.toString()}`;
     const response = await fetch(url);
-    
+
     if (!response.ok) {
       throw new Error('Python service unavailable');
     }
-    
+
     const data = await response.json();
     res.json(data);
   } catch (error) {
     console.error('Telemetry error:', error);
-    res.status(503).json({ 
-      error: 'Telemetry service unavailable', 
+    res.status(503).json({
+      error: 'Telemetry service unavailable',
       message: 'Live telemetry requires Python FastF1 service running on port 5003',
-      detail: error.message 
+      detail: error.message
     });
   }
 });

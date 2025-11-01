@@ -33,6 +33,7 @@ export function Navbar({ activeLink, onNavigate, theme, onThemeToggle }) {
     { name: 'Live', path: '/live' },
     { name: 'Drivers', path: '/drivers' },
     { name: 'Teams', path: '/teams' },
+    { name: 'Schedule', path: '/schedule' },
     { name: 'F1 Rewind', path: '/rewind' },
     { name: 'Podium Predictor', path: '/predictor' },
     { name: 'Standings', path: '/standings' },

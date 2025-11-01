@@ -1,33 +1,38 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Trophy, TrendingUp, Award, Loader2 } from 'lucide-react';
+import { Trophy, TrendingUp, Award, Loader2, Search, Filter } from 'lucide-react';
 import { ImageWithFallback } from '../components/figma/ImageWithFallback';
 import { fetchDrivers } from '../api/f1Api';
 
 export function Drivers({ onNavigate }) {
   const [hoveredCard, setHoveredCard] = useState(null);
   const [drivers, setDrivers] = useState([]);
+  const [filteredDrivers, setFilteredDrivers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedTeam, setSelectedTeam] = useState('');
+  const [sortBy, setSortBy] = useState('position');
 
   useEffect(() => {
     const loadDrivers = async () => {
       setLoading(true);
       setError(null);
-      
+
       try {
         const response = await fetchDrivers();
-        
+
         if (response.error) {
           throw new Error(response.error);
         }
-        
+
         if (!response.drivers || response.drivers.length === 0) {
           throw new Error('No drivers data available for this season');
         }
-        
+
         // Use the data directly from Ergast - it's already properly formatted
         setDrivers(response.drivers);
+        setFilteredDrivers(response.drivers);
       } catch (err) {
         console.error('Error loading drivers:', err);
         setError(err.message);
@@ -38,6 +43,42 @@ export function Drivers({ onNavigate }) {
 
     loadDrivers();
   }, []);
+
+  // Filter and sort drivers
+  useEffect(() => {
+    let filtered = [...drivers];
+
+    // Search filter
+    if (searchTerm) {
+      filtered = filtered.filter(driver =>
+        driver.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        driver.team?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        driver.nationality?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    // Team filter
+    if (selectedTeam) {
+      filtered = filtered.filter(driver => driver.team === selectedTeam);
+    }
+
+    // Sort
+    filtered.sort((a, b) => {
+      switch (sortBy) {
+        case 'name':
+          return a.fullName.localeCompare(b.fullName);
+        case 'points':
+          return (b.points || 0) - (a.points || 0);
+        case 'wins':
+          return (b.wins || 0) - (a.wins || 0);
+        case 'position':
+        default:
+          return (a.position || 999) - (b.position || 999);
+      }
+    });
+
+    setFilteredDrivers(filtered);
+  }, [drivers, searchTerm, selectedTeam, sortBy]);
 
   if (loading) {
     return (
@@ -71,15 +112,60 @@ export function Drivers({ onNavigate }) {
   const maxPoints = Math.max(...drivers.map(d => d.points || 0), 1);
   const maxWins = Math.max(...drivers.map(d => d.wins || 0), 1);
 
+  // Get unique teams for filter dropdown
+  const uniqueTeams = [...new Set(drivers.map(d => d.team).filter(Boolean))];
+
   return (
     <div>
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-foreground mb-2">F1 Drivers</h1>
         <p className="text-foreground/60">Complete driver lineup for the {new Date().getFullYear()} season</p>
+
+        {/* Filters */}
+        <div className="flex flex-col sm:flex-row gap-4 mt-6">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-f1light/60 w-4 h-4" />
+            <input
+              type="text"
+              placeholder="Search drivers, teams, or nationalities..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 bg-f1dark text-f1light rounded-lg border border-f1light/20 focus:outline-none focus:ring-2 focus:ring-f1red"
+            />
+          </div>
+
+          <div className="flex gap-2">
+            <select
+              value={selectedTeam}
+              onChange={(e) => setSelectedTeam(e.target.value)}
+              className="px-4 py-2 bg-f1dark text-f1light rounded-lg border border-f1light/20 focus:outline-none focus:ring-2 focus:ring-f1red"
+            >
+              <option value="">All Teams</option>
+              {uniqueTeams.map(team => (
+                <option key={team} value={team}>{team}</option>
+              ))}
+            </select>
+
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="px-4 py-2 bg-f1dark text-f1light rounded-lg border border-f1light/20 focus:outline-none focus:ring-2 focus:ring-f1red"
+            >
+              <option value="position">Sort by Position</option>
+              <option value="name">Sort by Name</option>
+              <option value="points">Sort by Points</option>
+              <option value="wins">Sort by Wins</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="text-f1light/60 text-sm mt-2">
+          Showing {filteredDrivers.length} of {drivers.length} drivers
+        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {drivers.map((driver, index) => (
+        {filteredDrivers.map((driver, index) => (
           <motion.div
             key={driver.id}
             className="glass-strong rounded-xl overflow-hidden shadow-lg cursor-pointer relative"

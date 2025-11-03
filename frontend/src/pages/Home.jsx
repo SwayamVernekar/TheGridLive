@@ -199,8 +199,8 @@ export function Home({ onNavigate, favoriteDriver }) {
                     <motion.div
                       className="absolute inset-0 rounded-lg"
                       style={{
-                        boxShadow: `inset 0 0 20px ${driver.teamColor}40`,
-                        border: `1px solid ${driver.teamColor}80`,
+                        boxShadow: `inset 0 0 20px ${(driver.teamColor || '#DC0000')}40`,
+                        border: `1px solid ${(driver.teamColor || '#DC0000')}80`,
                       }}
                       initial={{ opacity: 0.5 }}
                       animate={{
@@ -218,7 +218,7 @@ export function Home({ onNavigate, favoriteDriver }) {
                     <div className="flex-shrink-0">
                       <div
                         className="w-2 h-2 rounded-full"
-                        style={{ backgroundColor: driver.teamColor }}
+                        style={{ backgroundColor: driver.teamColor || '#DC0000' }}
                       />
                     </div>
                     <div className="flex-1 min-w-0">

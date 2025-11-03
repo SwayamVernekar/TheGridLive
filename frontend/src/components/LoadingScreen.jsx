@@ -46,7 +46,7 @@ export function LoadingScreen({ onComplete }) {
 
   return (
     <motion.div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-gray-950"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-background"
       initial={{ opacity: 1 }}
       animate={{ opacity: loadingStage === 'complete' ? 0 : 1 }}
       transition={{ duration: 0.5, delay: loadingStage === 'complete' ? 0 : 0 }}

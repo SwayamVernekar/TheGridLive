@@ -165,7 +165,7 @@ export function Navbar({ activeLink, onNavigate, theme, onThemeToggle }) {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
             transition={{ duration: 0.3 }}
-            className="md:hidden fixed inset-0 z-40 bg-gray-950 flex flex-col items-center justify-center gap-8"
+            className="md:hidden fixed inset-0 z-40 bg-background flex flex-col items-center justify-center gap-8"
             style={{ top: '4rem' }}
           >
             {links.map((link) => (

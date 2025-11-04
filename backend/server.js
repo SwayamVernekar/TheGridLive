@@ -27,48 +27,228 @@ const PORT = process.env.PORT || 5002;
 // ============================================
 // External API Configuration
 // ============================================
-const ERGAST_API_URL = 'https://ergast.com/api/f1';
 const CURRENT_YEAR = 2025; // Update to 2025 when season starts
 const NEWS_API_KEY = process.env.NEWS_API_KEY || ''; // User provides this
 const NEWS_API_URL = 'https://newsapi.org/v2';
-const FASTF1_API_URL = process.env.PYTHON_API_URL || 'http://localhost:5003/api/v1';
-
-// ============================================
-// Ergast API Helper Function
-// ============================================
-async function fetchFromErgast(endpoint) {
-  try {
-    const url = `${ERGAST_API_URL}/${endpoint}.json`;
-    console.log(`📡 Fetching from Ergast: ${url}`);
-
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`Ergast API error: ${response.status} ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    return data.MRData;
-  } catch (error) {
-    console.error('Ergast API fetch error:', error);
-    throw error;
-  }
-}
+const FASTF1_API_URL = process.env.PYTHON_API_URL || null; // Disabled since we're using CSV data directly
 
 // ============================================
 // MongoDB Configuration (Primary Data Source)
 // ============================================
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/f1_telemetry';
 let mongoConnected = false;
+let connectionAttempts = 0;
+let reconnectTimeout = null;
+let healthCheckInterval = null;
+let circuitBreakerOpen = false;
+let circuitBreakerTimeout = null;
+const MAX_CONNECTION_ATTEMPTS = 10;
+const BASE_RETRY_DELAY = 1000; // 1 second base delay
+const MAX_RETRY_DELAY = 30000; // 30 seconds max delay
+const HEALTH_CHECK_INTERVAL = 30000; // 30 seconds
+const CONNECTION_TIMEOUT = 10000; // 10 seconds
+const CIRCUIT_BREAKER_DURATION = 60000; // 1 minute pause after max attempts
 
-mongoose.connect(MONGO_URI)
+// Enhanced connection options for better reliability
+const mongooseOptions = {
+  serverSelectionTimeoutMS: CONNECTION_TIMEOUT,
+  socketTimeoutMS: 45000,
+  bufferCommands: false,
+  bufferMaxEntries: 0,
+  maxPoolSize: 10, // Connection pooling
+  minPoolSize: 2,
+  maxIdleTimeMS: 30000,
+  family: 4, // Use IPv4
+  heartbeatFrequencyMS: 10000, // Check connection every 10s
+  retryWrites: true,
+  retryReads: true,
+  readPreference: 'primaryPreferred'
+};
+
+// Exponential backoff calculation
+function calculateRetryDelay(attempt) {
+  const delay = BASE_RETRY_DELAY * Math.pow(2, attempt);
+  return Math.min(delay + Math.random() * 1000, MAX_RETRY_DELAY); // Add jitter
+}
+
+// Enhanced connection function with exponential backoff and circuit breaker
+function connectToMongoDB() {
+  if (reconnectTimeout) {
+    clearTimeout(reconnectTimeout);
+    reconnectTimeout = null;
+  }
+
+  // Check circuit breaker - prevent connection attempts if open
+  if (circuitBreakerOpen) {
+    console.log(`[${new Date().toISOString()}] 🔌 Circuit breaker is OPEN - skipping connection attempt`);
+    return;
+  }
+
+  const timestamp = new Date().toISOString();
+  console.log(`[${timestamp}] 🔌 Attempting MongoDB connection (attempt ${connectionAttempts + 1}/${MAX_CONNECTION_ATTEMPTS})...`);
+  console.log(`[${timestamp}] 📍 Connection URI: ${MONGO_URI.replace(/\/\/.*@/, '//***:***@')}`); // Mask credentials in logs
+
+  mongoose.connect(MONGO_URI, mongooseOptions)
   .then(() => {
-    console.log('✅ MongoDB connected');
+    const connectTimestamp = new Date().toISOString();
+    console.log(`[${connectTimestamp}] ✅ MongoDB connected successfully`);
+    console.log(`[${connectTimestamp}] 📊 Connected to: ${mongoose.connection.name} (${mongoose.connection.host}:${mongoose.connection.port})`);
+    console.log(`[${connectTimestamp}] 🔗 Connection state: ${mongoose.connection.readyState} (${mongoose.connection.states[mongoose.connection.readyState]})`);
+    console.log(`[${connectTimestamp}] ⏱️  Connection established in ${Date.now() - new Date(timestamp).getTime()}ms`);
     mongoConnected = true;
+    connectionAttempts = 0; // Reset attempts on success
+    startHealthCheck(); // Start periodic health monitoring
   })
   .catch(err => {
-    console.log('⚠️  MongoDB optional - running without database:', err.message);
+    const errorTimestamp = new Date().toISOString();
+    console.error(`[${errorTimestamp}] ❌ MongoDB connection error:`, err.message);
+    console.error(`[${errorTimestamp}] 📋 Error details:`, {
+      name: err.name,
+      code: err.code,
+      codeName: err.codeName,
+      serverSelectionTimeoutMS: CONNECTION_TIMEOUT
+    });
     mongoConnected = false;
+    connectionAttempts++;
+
+    if (connectionAttempts < MAX_CONNECTION_ATTEMPTS) {
+      const delay = calculateRetryDelay(connectionAttempts - 1);
+      console.log(`[${errorTimestamp}] 🔄 Retrying MongoDB connection in ${Math.round(delay/1000)}s... (Attempt ${connectionAttempts}/${MAX_CONNECTION_ATTEMPTS})`);
+      console.log(`[${errorTimestamp}] 📈 Next retry delay: ${Math.round(delay/1000)}s (exponential backoff)`);
+      reconnectTimeout = setTimeout(connectToMongoDB, delay);
+    } else {
+      console.log(`[${errorTimestamp}] ⚠️  Max MongoDB connection attempts reached - running without database`);
+      console.log(`[${errorTimestamp}] 💡 Application will use fallback mock data`);
+      console.log(`[${errorTimestamp}] 🔍 Connection will be retried periodically with ${Math.round(MAX_RETRY_DELAY/1000)}s intervals`);
+      // Continue retrying indefinitely with max delay
+      reconnectTimeout = setTimeout(connectToMongoDB, MAX_RETRY_DELAY);
+    }
   });
+}
+
+// Connection health monitoring
+function startHealthCheck() {
+  if (healthCheckInterval) {
+    clearInterval(healthCheckInterval);
+  }
+
+  console.log(`[${new Date().toISOString()}] 🩺 Starting MongoDB health monitoring (interval: ${HEALTH_CHECK_INTERVAL/1000}s)`);
+
+  healthCheckInterval = setInterval(async () => {
+    const checkTimestamp = new Date().toISOString();
+    try {
+      if (mongoose.connection.readyState === 1) {
+        // Ping the database
+        const pingStart = Date.now();
+        await mongoose.connection.db.admin().ping();
+        const pingTime = Date.now() - pingStart;
+        console.log(`[${checkTimestamp}] 💚 MongoDB health check: OK (${pingTime}ms ping)`);
+        console.log(`[${checkTimestamp}] 📊 Connection pool: ${mongoose.connection.db.serverStatus().connections?.current || 'N/A'} active connections`);
+      } else {
+        console.log(`[${checkTimestamp}] 💔 MongoDB health check: Connection lost (state: ${mongoose.connection.readyState})`);
+        mongoConnected = false;
+        if (!reconnectTimeout) {
+          console.log(`[${checkTimestamp}] 🔄 Triggering automatic reconnection due to health check failure`);
+          connectToMongoDB();
+        }
+      }
+    } catch (error) {
+      console.error(`[${checkTimestamp}] 💔 MongoDB health check failed:`, error.message);
+      console.error(`[${checkTimestamp}] 📋 Health check error details:`, {
+        name: error.name,
+        message: error.message,
+        readyState: mongoose.connection.readyState
+      });
+      mongoConnected = false;
+      if (!reconnectTimeout) {
+        console.log(`[${checkTimestamp}] 🔄 Triggering automatic reconnection due to health check error`);
+        connectToMongoDB();
+      }
+    }
+  }, HEALTH_CHECK_INTERVAL);
+}
+
+function stopHealthCheck() {
+  if (healthCheckInterval) {
+    clearInterval(healthCheckInterval);
+    healthCheckInterval = null;
+  }
+}
+
+// Enhanced connection event handlers
+mongoose.connection.on('connected', () => {
+  const eventTimestamp = new Date().toISOString();
+  console.log(`[${eventTimestamp}] 📊 Mongoose connected to MongoDB`);
+  console.log(`[${eventTimestamp}] 🔗 Connection state: ${mongoose.connection.readyState} (${mongoose.connection.states[mongoose.connection.readyState]})`);
+  console.log(`[${eventTimestamp}] 📍 Database: ${mongoose.connection.name}`);
+  console.log(`[${eventTimestamp}] 🌐 Host: ${mongoose.connection.host}:${mongoose.connection.port}`);
+  mongoConnected = true;
+});
+
+mongoose.connection.on('error', (err) => {
+  const eventTimestamp = new Date().toISOString();
+  console.error(`[${eventTimestamp}] 📊 Mongoose connection error:`, err.message);
+  console.error(`[${eventTimestamp}] 📋 Connection error details:`, {
+    name: err.name,
+    code: err.code,
+    readyState: mongoose.connection.readyState
+  });
+  mongoConnected = false;
+});
+
+mongoose.connection.on('disconnected', () => {
+  const eventTimestamp = new Date().toISOString();
+  console.log(`[${eventTimestamp}] 📊 Mongoose disconnected from MongoDB`);
+  console.log(`[${eventTimestamp}] 🔌 Previous connection state: ${mongoose.connection.readyState}`);
+  mongoConnected = false;
+  stopHealthCheck();
+
+  if (!reconnectTimeout) {
+    console.log(`[${eventTimestamp}] 🔄 Connection lost - attempting to reconnect...`);
+    connectToMongoDB();
+  }
+});
+
+mongoose.connection.on('reconnected', () => {
+  const eventTimestamp = new Date().toISOString();
+  console.log(`[${eventTimestamp}] 📊 Mongoose reconnected to MongoDB`);
+  console.log(`[${eventTimestamp}] 🔄 Reconnection successful - restarting health monitoring`);
+  mongoConnected = true;
+  startHealthCheck();
+});
+
+mongoose.connection.on('reconnectFailed', () => {
+  const eventTimestamp = new Date().toISOString();
+  console.log(`[${eventTimestamp}] 📊 Mongoose reconnection failed - will retry with backoff`);
+  console.log(`[${eventTimestamp}] ⚠️  Current attempt count: ${connectionAttempts}/${MAX_CONNECTION_ATTEMPTS}`);
+  mongoConnected = false;
+});
+
+// Graceful shutdown handling
+process.on('SIGINT', async () => {
+  console.log('\n🛑 Received SIGINT - gracefully shutting down...');
+  stopHealthCheck();
+  if (reconnectTimeout) {
+    clearTimeout(reconnectTimeout);
+  }
+  await mongoose.connection.close();
+  console.log('✅ MongoDB connection closed');
+  process.exit(0);
+});
+
+process.on('SIGTERM', async () => {
+  console.log('\n🛑 Received SIGTERM - gracefully shutting down...');
+  stopHealthCheck();
+  if (reconnectTimeout) {
+    clearTimeout(reconnectTimeout);
+  }
+  await mongoose.connection.close();
+  console.log('✅ MongoDB connection closed');
+  process.exit(0);
+});
+
+// Initial connection attempt
+connectToMongoDB();
 
 // Helper function to check MongoDB connectivity
 function isMongoConnected() {
@@ -128,8 +308,8 @@ function rateLimit(req, res, next) {
   next();
 }
 
-// Apply rate limiting to all API routes
-app.use('/api/', rateLimit);
+// Rate limiting disabled for MongoDB operations
+// app.use('/api/', rateLimit);
 
 function isCacheValid(cacheEntry) {
   return cacheEntry.data && (Date.now() - cacheEntry.timestamp < CACHE_DURATION);
@@ -322,11 +502,47 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
-// Welcome Endpoint with Logging
-app.get('/api/welcome', (req, res) => {
-  console.log(`Request received: ${req.method} ${req.path}`);
-  res.json({ message: 'Welcome to the F1 API Service!' });
+// Manual MongoDB Reconnect Endpoint (Admin)
+app.post('/api/admin/reconnect', async (req, res) => {
+  const timestamp = new Date().toISOString();
+  console.log(`[${timestamp}] 🔧 Manual MongoDB reconnection requested by admin`);
+
+  try {
+    // If already connected, disconnect first
+    if (mongoose.connection.readyState === 1) {
+      console.log(`[${timestamp}] 🔌 Disconnecting existing connection before manual reconnect`);
+      await mongoose.connection.close();
+      mongoConnected = false;
+      stopHealthCheck();
+    }
+
+    // Reset connection attempts and circuit breaker for manual reconnect
+    connectionAttempts = 0;
+    circuitBreakerOpen = false;
+    if (circuitBreakerTimeout) {
+      clearTimeout(circuitBreakerTimeout);
+      circuitBreakerTimeout = null;
+    }
+
+    console.log(`[${timestamp}] 🚀 Initiating manual MongoDB reconnection`);
+    connectToMongoDB();
+
+    res.json({
+      message: 'Manual MongoDB reconnection initiated',
+      timestamp: new Date().toISOString(),
+      status: 'reconnecting'
+    });
+  } catch (error) {
+    console.error(`[${timestamp}] ❌ Manual reconnection failed:`, error.message);
+    res.status(500).json({
+      error: 'Manual reconnection failed',
+      message: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
 });
+
+
 
 // Get Current Season Driver Standings (MongoDB)
 app.get('/api/data/standings/drivers', async (req, res) => {

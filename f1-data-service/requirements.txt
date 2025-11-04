@@ -1,6 +1,0 @@
-Flask==3.0.0
-Flask-CORS==4.0.0
-fastf1==3.4.0
-pandas==2.3.3
-numpy==2.3.4
-requests==2.31.0

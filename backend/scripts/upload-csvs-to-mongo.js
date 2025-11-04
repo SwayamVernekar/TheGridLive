@@ -13,7 +13,7 @@ import Telemetry from '../models/Telemetry.js';
 dotenv.config();
 
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/f1_telemetry';
-const CSV_DIR = path.join(process.cwd(), '..', 'f1-data-service', 'f1data', 'outputs_2025');
+const CSV_DIR = path.join(process.cwd(), '..', 'f1data', 'outputs_2025');
 
 async function connectDB() {
   try {
@@ -64,14 +64,14 @@ async function uploadEvents() {
     const now = new Date();
     const nextRace = races.find(race => new Date(race.date) > now);
 
-    const scheduleDoc = new Schedule({
+    const scheduleData = {
       season: 2025,
       races: races,
       nextRace: nextRace,
       totalRaces: races.length
-    });
+    };
 
-    await Schedule.findOneAndUpdate({ season: 2025 }, scheduleDoc, { upsert: true });
+    await Schedule.findOneAndUpdate({ season: 2025 }, scheduleData, { upsert: true, new: true });
     console.log(`✅ Uploaded ${races.length} events`);
   } catch (error) {
     console.error('❌ Error uploading events:', error);
@@ -87,9 +87,9 @@ async function uploadDrivers() {
       return;
     }
 
-    const driversData = await readCSV(driversPath);
+    const csvDriversData = await readCSV(driversPath);
 
-    const drivers = driversData.map(driver => ({
+    const drivers = csvDriversData.map(driver => ({
       id: (driver.Abbreviation || '').toLowerCase(),
       driverId: (driver.Abbreviation || '').toLowerCase(),
       code: driver.Abbreviation || '',
@@ -108,13 +108,13 @@ async function uploadDrivers() {
       driverImage: `https://source.unsplash.com/400x400/?f1,driver,portrait,racer,${driver.LastName}`
     }));
 
-    const driversDoc = new Drivers({
+    const driversData = {
       season: 2025,
       drivers: drivers,
       count: drivers.length
-    });
+    };
 
-    await Drivers.findOneAndUpdate({ season: 2025 }, driversDoc, { upsert: true });
+    await Drivers.findOneAndUpdate({ season: 2025 }, driversData, { upsert: true, new: true });
     console.log(`✅ Uploaded ${drivers.length} drivers`);
   } catch (error) {
     console.error('❌ Error uploading drivers:', error);
@@ -140,9 +140,9 @@ async function uploadDriverStandings() {
     const latestFile = files.sort().pop();
     const standingsPath = path.join(standingsDir, latestFile);
 
-    const standingsData = await readCSV(standingsPath);
+    const csvStandingsData = await readCSV(standingsPath);
 
-    const driverStandings = standingsData.map((entry, index) => ({
+    const driverStandings = csvStandingsData.map((entry, index) => ({
       position: parseInt(entry.Position) || index + 1,
       points: parseFloat(entry.Points) || 0,
       wins: parseInt(entry.Wins) || 0,
@@ -164,14 +164,14 @@ async function uploadDriverStandings() {
     const raceMatch = latestFile.match(/(.+)_driver_standings\.csv/);
     const lastRace = raceMatch ? raceMatch[1].replace(/_/g, ' ') : 'Unknown';
 
-    const standingsDoc = new DriverStandings({
+    const standingsData = {
       season: 2025,
       lastRace: lastRace,
       round: 0, // Would need to calculate from schedule
       standings: driverStandings
-    });
+    };
 
-    await DriverStandings.findOneAndUpdate({ season: 2025 }, standingsDoc, { upsert: true });
+    await DriverStandings.findOneAndUpdate({ season: 2025 }, standingsData, { upsert: true, new: true });
     console.log(`✅ Uploaded driver standings for ${lastRace}`);
   } catch (error) {
     console.error('❌ Error uploading driver standings:', error);
@@ -197,9 +197,9 @@ async function uploadConstructorStandings() {
     const latestFile = files.sort().pop();
     const standingsPath = path.join(standingsDir, latestFile);
 
-    const standingsData = await readCSV(standingsPath);
+    const csvConstructorStandingsData = await readCSV(standingsPath);
 
-    const constructorStandings = standingsData.map((entry, index) => ({
+    const constructorStandings = csvConstructorStandingsData.map((entry, index) => ({
       position: parseInt(entry.Position) || index + 1,
       points: parseFloat(entry.Points) || 0,
       wins: parseInt(entry.Wins) || 0,
@@ -211,12 +211,12 @@ async function uploadConstructorStandings() {
       carImage: `https://source.unsplash.com/800x400/?f1,${entry.Team},car,2025`
     }));
 
-    const standingsDoc = new ConstructorStandings({
+    const standingsData = {
       season: 2025,
       standings: constructorStandings
-    });
+    };
 
-    await ConstructorStandings.findOneAndUpdate({ season: 2025 }, standingsDoc, { upsert: true, new: true });
+    await ConstructorStandings.findOneAndUpdate({ season: 2025 }, standingsData, { upsert: true, new: true });
     console.log(`✅ Uploaded constructor standings`);
   } catch (error) {
     console.error('❌ Error uploading constructor standings:', error);
@@ -286,16 +286,16 @@ async function uploadRaceResults() {
         const raceInfo = schedule?.races.find(r => r.raceName === raceName);
         const round = raceInfo?.round || 0;
 
-        const raceResultsDoc = new RaceResults({
+        const raceResultsData = {
           season: 2025,
           round: round,
           raceName: raceName,
           circuitName: raceInfo?.circuitName || '',
           date: raceInfo?.date || '',
           results: results
-        });
+        };
 
-        await RaceResults.findOneAndUpdate({ season: 2025, round: round }, raceResultsDoc, { upsert: true, new: true });
+        await RaceResults.findOneAndUpdate({ season: 2025, round: round }, raceResultsData, { upsert: true, new: true });
         resultsLoaded++;
         console.log(`  ✅ Uploaded results for ${raceName}`);
 
@@ -365,18 +365,18 @@ async function uploadTelemetry() {
 
         // Save telemetry for each driver
         for (const [driver, laps] of Object.entries(driverTelemetry)) {
-          const telemetryDoc = new Telemetry({
+          const telemetryData = {
             season: 2025,
             raceName: raceName,
             sessionType: sessionType,
             driver: driver,
             driverId: driver.toLowerCase().replace(/\s+/g, '_'),
             laps: laps
-          });
+          };
 
           await Telemetry.findOneAndUpdate(
             { season: 2025, raceName: raceName, sessionType: sessionType, driver: driver },
-            telemetryDoc,
+            telemetryData,
             { upsert: true, new: true }
           );
         }

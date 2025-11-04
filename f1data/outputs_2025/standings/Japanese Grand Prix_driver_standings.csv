@@ -1,0 +1,21 @@
+DriverNumber,FullName,TeamName,Position,Points,CumulativePoints
+1,Max Verstappen,Red Bull Racing,1.0,25.0,25.0
+4,Lando Norris,McLaren,2.0,18.0,43.0
+81,Oscar Piastri,McLaren,3.0,15.0,58.0
+16,Charles Leclerc,Ferrari,4.0,12.0,70.0
+63,George Russell,Mercedes,5.0,10.0,80.0
+12,Kimi Antonelli,Mercedes,6.0,8.0,88.0
+44,Lewis Hamilton,Ferrari,7.0,6.0,94.0
+6,Isack Hadjar,Racing Bulls,8.0,4.0,98.0
+23,Alexander Albon,Williams,9.0,2.0,100.0
+87,Oliver Bearman,Haas F1 Team,10.0,1.0,101.0
+14,Fernando Alonso,Aston Martin,11.0,0.0,101.0
+22,Yuki Tsunoda,Red Bull Racing,12.0,0.0,101.0
+10,Pierre Gasly,Alpine,13.0,0.0,101.0
+55,Carlos Sainz,Williams,14.0,0.0,101.0
+7,Jack Doohan,Alpine,15.0,0.0,101.0
+27,Nico Hulkenberg,Kick Sauber,16.0,0.0,101.0
+30,Liam Lawson,Racing Bulls,17.0,0.0,101.0
+31,Esteban Ocon,Haas F1 Team,18.0,0.0,101.0
+5,Gabriel Bortoleto,Kick Sauber,19.0,0.0,101.0
+18,Lance Stroll,Aston Martin,20.0,0.0,101.0

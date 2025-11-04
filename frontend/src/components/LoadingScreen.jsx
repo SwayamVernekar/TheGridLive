@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'; // Using 'framer-motion
 
 
 
-export function LoadingScreen({ onComplete }) {
+export default function LoadingScreen({ onComplete }) {
   const [loadingStage, setLoadingStage] = useState('tire');
   const [rotation, setRotation] = useState(0);
 

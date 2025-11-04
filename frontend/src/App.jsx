@@ -3,7 +3,7 @@ import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
 import { FloatingParticles } from './components/FloatingParticles';
 import { SpeedLinesBackground } from './components/SpeedLinesBackground';
-import { LoadingScreen } from './components/LoadingScreen';
+import LoadingScreen from './components/LoadingScreen';
 import { FavoriteDriverModal } from './components/FavoriteDriverModal';
 import { Home } from './pages/Home';
 import { Drivers } from './pages/Drivers';
@@ -18,8 +18,6 @@ import { DriverStandings } from './pages/DriverStandings';
 import { ConstructorStandings } from './pages/ConstructorStandings';
 import { DriverDetails } from './pages/DriverDetails';
 import { TeamDetails } from './pages/TeamDetails';
-import { F1Rewind } from './pages/F1Rewind';
-import { PodiumPredictor } from './pages/PodiumPredictor';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 import { About } from './pages/About';
@@ -126,10 +124,7 @@ export default function App() {
         return <Consistency />;
       case '/race-pace':
         return <RacePace />;
-      case '/f1-rewind':
-        return <F1Rewind />;
-      case '/podium-predictor':
-        return <PodiumPredictor />;
+
       case '/about':
         return <About />;
       case '/contact':

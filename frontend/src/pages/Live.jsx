@@ -1,23 +1,10 @@
 import { useState, useEffect } from 'react'; // Added useEffect for the G-Force animation
 import { motion, AnimatePresence } from 'framer-motion'; // Using 'framer-motion' as the standard library for 'motion'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { TrendingUp, Radio, Gauge, Trophy, Clock, Activity } from 'lucide-react';
+import { TrendingUp, Radio, Gauge, Trophy, Clock, Activity, Calendar, MapPin } from 'lucide-react';
+import LoadingScreen from '../components/LoadingScreen';
 
-// --- MOCK DATA/COMPONENTS (Replace with your actual imports) ---
-// Mockup Data
-const generateLiveTelemetry = () => {
-  return Array.from({ length: 30 }, (_, i) => ({
-    lap: i + 1,
-    'Max Verstappen': 300 + Math.sin(i * 0.5) * 20,
-    'Lewis Hamilton': 305 + Math.cos(i * 0.3) * 15,
-  }));
-};
-const winPredictions = [
-  { driver: "Max Verstappen", team: "Red Bull", probability: 75, color: "#0600EF" },
-  { driver: "Lewis Hamilton", team: "Mercedes", probability: 15, color: "#00D2BE" },
-  { driver: "Charles Leclerc", team: "Ferrari", probability: 5, color: "#DC0000" },
-];
-// Mockup StatCard
+// StatCard Component
 const StatCard = ({ icon: Icon, label, value, subtitle, highlight }) => (
   <div className={`glass-strong rounded-lg p-6 shadow-lg ${highlight ? 'border-l-4 border-f1red' : ''}`}>
     <div className="flex items-center gap-3 mb-2">
@@ -28,17 +15,239 @@ const StatCard = ({ icon: Icon, label, value, subtitle, highlight }) => (
     <p className="text-f1light/80 text-sm mt-1">{subtitle}</p>
   </div>
 );
-// -------------------------------------------------------------------
 
 
 // The TypeScript interface is removed.
 
 export function Live() {
-  const telemetryData = generateLiveTelemetry();
-  
+  const [scheduleData, setScheduleData] = useState(null);
+  const [telemetryData, setTelemetryData] = useState([]);
+  const [winPredictions, setWinPredictions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Fetch schedule data on component mount
+  useEffect(() => {
+    const fetchSchedule = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch('/api/data/schedule');
+        if (!response.ok) {
+          throw new Error('Failed to fetch schedule data');
+        }
+        const data = await response.json();
+        setScheduleData(data);
+        setError(null);
+      } catch (err) {
+        console.error('Error fetching schedule:', err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSchedule();
+  }, []);
+
+  // Fetch telemetry and predictions when live race is detected
+  useEffect(() => {
+    const liveRace = getLiveRace();
+    if (liveRace) {
+      fetchTelemetryData();
+      fetchWinPredictions();
+    }
+  }, [scheduleData]);
+
+  const fetchTelemetryData = async () => {
+    try {
+      // For demo purposes, fetch telemetry for top drivers
+      const topDrivers = ['max_verstappen', 'lewis_hamilton'];
+      const telemetryPromises = topDrivers.map(async (driver) => {
+        try {
+          const response = await fetch(`/api/data/telemetry/${driver}?year=2025&event=${getLiveRace()?.circuitId}&session=R`);
+          if (response.ok) {
+            const data = await response.json();
+            return data;
+          }
+        } catch (err) {
+          console.warn(`Failed to fetch telemetry for ${driver}:`, err);
+        }
+        return null;
+      });
+
+      const telemetryResults = await Promise.all(telemetryPromises);
+      const validTelemetry = telemetryResults.filter(data => data);
+
+      if (validTelemetry.length > 0) {
+        // Process telemetry data for chart
+        const processedData = processTelemetryForChart(validTelemetry);
+        setTelemetryData(processedData);
+      } else {
+        // Fallback to mock data if telemetry service unavailable
+        setTelemetryData(generateLiveTelemetry());
+      }
+    } catch (err) {
+      console.error('Error fetching telemetry:', err);
+      // Fallback to mock data
+      setTelemetryData(generateLiveTelemetry());
+    }
+  };
+
+  const fetchWinPredictions = async () => {
+    try {
+      const response = await fetch('/api/data/standings/drivers');
+      if (response.ok) {
+        const data = await response.json();
+        const predictions = calculateWinPredictions(data.standings || []);
+        setWinPredictions(predictions);
+      } else {
+        // Fallback to mock predictions
+        setWinPredictions([
+          { driver: "Max Verstappen", team: "Red Bull", probability: 75, color: "#0600EF" },
+          { driver: "Lewis Hamilton", team: "Mercedes", probability: 15, color: "#00D2BE" },
+          { driver: "Charles Leclerc", team: "Ferrari", probability: 5, color: "#DC0000" },
+        ]);
+      }
+    } catch (err) {
+      console.error('Error fetching win predictions:', err);
+      // Fallback to mock predictions
+      setWinPredictions([
+        { driver: "Max Verstappen", team: "Red Bull", probability: 75, color: "#0600EF" },
+        { driver: "Lewis Hamilton", team: "Mercedes", probability: 15, color: "#00D2BE" },
+        { driver: "Charles Leclerc", team: "Ferrari", probability: 5, color: "#DC0000" },
+      ]);
+    }
+  };
+
+  const processTelemetryForChart = (telemetryData) => {
+    // Process telemetry data into chart format
+    // This is a simplified version - real implementation would aggregate data
+    const maxLaps = Math.max(...telemetryData.map(d => d.length || 0));
+    const chartData = [];
+
+    for (let lap = 1; lap <= maxLaps; lap++) {
+      const lapData = { lap };
+      telemetryData.forEach((driverData, index) => {
+        const driverName = index === 0 ? 'Max Verstappen' : 'Lewis Hamilton';
+        const speed = driverData[lap - 1]?.Speed || (300 + Math.sin(lap * 0.5) * 20);
+        lapData[driverName] = speed;
+      });
+      chartData.push(lapData);
+    }
+
+    return chartData.length > 0 ? chartData : generateLiveTelemetry();
+  };
+
+  const calculateWinPredictions = (standings) => {
+    if (!standings || standings.length === 0) {
+      return [
+        { driver: "Max Verstappen", team: "Red Bull", probability: 75, color: "#0600EF" },
+        { driver: "Lewis Hamilton", team: "Mercedes", probability: 15, color: "#00D2BE" },
+        { driver: "Charles Leclerc", team: "Ferrari", probability: 5, color: "#DC0000" },
+      ];
+    }
+
+    // Calculate win probability based on current standings (simplified)
+    const totalPoints = standings.reduce((sum, driver) => sum + driver.points, 0);
+    return standings.slice(0, 3).map((driver, index) => ({
+      driver: driver.fullName,
+      team: driver.constructorName,
+      probability: Math.max(5, Math.round((driver.points / totalPoints) * 100)),
+      color: driver.teamColor || '#cccccc'
+    }));
+  };
+
+  // Mock data fallback functions
+  const generateLiveTelemetry = () => {
+    return Array.from({ length: 30 }, (_, i) => ({
+      lap: i + 1,
+      'Max Verstappen': 300 + Math.sin(i * 0.5) * 20,
+      'Lewis Hamilton': 305 + Math.cos(i * 0.3) * 15,
+    }));
+  };
+
+  // Determine if there's a live race today
+  const getLiveRace = () => {
+    if (!scheduleData?.races) return null;
+
+    const today = new Date().toISOString().split('T')[0]; // Get YYYY-MM-DD format
+    return scheduleData.races.find(race => race.date === today);
+  };
+
+  const liveRace = getLiveRace();
+
+  // Show loading screen
+  if (loading) {
+    return <LoadingScreen />;
+  }
+
+  // Show error message
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div className="glass-strong rounded-lg p-6 text-center">
+          <h1 className="text-2xl font-bold text-f1light mb-4">Live Race Feed</h1>
+          <p className="text-f1light/80">Unable to load schedule data: {error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If no live race, show next race info
+  if (!liveRace) {
+    const nextRace = scheduleData?.nextRace;
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-3 mb-6">
+          <motion.div
+            className="flex items-center gap-2 bg-gray-600 px-4 py-2 rounded-lg"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            <Radio className="w-5 h-5 text-f1light" />
+            <h1 className="text-xl font-bold text-f1light">LIVE RACE FEED</h1>
+          </motion.div>
+        </div>
+
+        <motion.div
+          className="glass-strong rounded-lg p-8 text-center shadow-lg"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+        >
+          <div className="flex justify-center mb-4">
+            <Calendar className="w-16 h-16 text-f1light/50" />
+          </div>
+          <h2 className="text-2xl font-bold text-f1light mb-4">No Live Race Today</h2>
+          {nextRace ? (
+            <div className="space-y-4">
+              <p className="text-f1light/80 text-lg">Next race:</p>
+              <div className="glass-light rounded-lg p-6 max-w-md mx-auto">
+                <h3 className="text-xl font-bold text-f1light mb-2">{nextRace.raceName}</h3>
+                <div className="flex items-center justify-center gap-2 text-f1light/80 mb-2">
+                  <MapPin className="w-4 h-4" />
+                  <span>{nextRace.locality}, {nextRace.country}</span>
+                </div>
+                <div className="flex items-center justify-center gap-2 text-f1light/60">
+                  <Clock className="w-4 h-4" />
+                  <span>{new Date(nextRace.date).toLocaleDateString()} at {nextRace.time}</span>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <p className="text-f1light/80">No upcoming races scheduled</p>
+          )}
+        </motion.div>
+      </div>
+    );
+  }
+
+  // Live race is happening - show live feed
+
   // TypeScript type annotation is removed, initializing with a plain JavaScript object.
   const [gForce, setGForce] = useState({ lateral: 3.5, longitudinal: -1.2 });
-  
+
   // Update G-Force state every second to simulate live telemetry
   useEffect(() => {
     const interval = setInterval(() => {
@@ -46,7 +255,7 @@ export function Live() {
         // Lateral G: typically 1.5 to 4.5 G
         lateral: parseFloat((Math.random() * 3 + 1.5).toFixed(1)),
         // Longitudinal G: braking (-1 to -5 G) or acceleration (0.5 to 2 G)
-        longitudinal: parseFloat((Math.random() * 6 - 4).toFixed(1)), 
+        longitudinal: parseFloat((Math.random() * 6 - 4).toFixed(1)),
       });
     }, 1000);
 
@@ -81,7 +290,7 @@ export function Live() {
         </motion.div>
         <div className="text-f1light/80 text-sm flex items-center gap-1">
             <Activity className="w-4 h-4 text-f1light/50" />
-            Active Lap: 15
+            Active Lap: 15 - {liveRace.raceName}
         </div>
       </div>
 

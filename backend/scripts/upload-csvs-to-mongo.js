@@ -142,6 +142,20 @@ async function uploadConstructorStandings() {
       return;
     }
 
+    // Load teams.csv for team color mapping
+    const teamsPath = path.join(CSV_DIR, 'teams.csv');
+    let teamColors = {};
+    if (fs.existsSync(teamsPath)) {
+      const teamsData = await readCSV(teamsPath);
+      teamColors = teamsData.reduce((acc, team) => {
+        acc[team.Team] = team.TeamColor;
+        return acc;
+      }, {});
+      console.log('✅ Loaded team colors from teams.csv');
+    } else {
+      console.log('⚠️  teams.csv not found, using default colors');
+    }
+
     // Get schedule to map race names to rounds and dates
     const schedule = await Schedule.findOne({ season: 2025 });
     if (!schedule) {
@@ -153,18 +167,37 @@ async function uploadConstructorStandings() {
     let latestRace = null;
     let latestDate = new Date(0);
 
+    console.log('🔍 Finding latest race with constructor standings...');
+    console.log('   Available CSV files:', files.length);
+    console.log('   Schedule races:', schedule.races.length);
+
     for (const file of files) {
       const raceMatch = file.match(/(.+)_constructor_standings\.csv/);
-      if (!raceMatch) continue;
+      if (!raceMatch) {
+        console.log(`   ⚠️  Skipping ${file} - no match`);
+        continue;
+      }
 
       const raceName = raceMatch[1].replace(/_/g, ' ');
-      const raceInfo = schedule.races.find(r => r.raceName === raceName);
-      if (!raceInfo) continue;
+      console.log(`   📄 Processing: ${file} -> "${raceName}"`);
 
-      const raceDate = formatDate(raceInfo.date); // Use consistent date format
+      const raceInfo = schedule.races.find(r => r.raceName === raceName);
+      if (!raceInfo) {
+        console.log(`   ❌ No race info found for "${raceName}"`);
+        continue;
+      }
+
+      console.log(`   ✅ Found race info: Round ${raceInfo.round}, Date: ${raceInfo.date}`);
+
+      const raceDate = new Date(raceInfo.date);
+      console.log(`   📅 Parsed date: ${raceDate.toISOString()}`);
+
       if (raceDate > latestDate) {
         latestDate = raceDate;
-        latestRace = { file, raceName, round: raceInfo.round, date: raceDate };
+        latestRace = { file, raceName, round: raceInfo.round, date: formatDate(raceInfo.date) };
+        console.log(`   🏆 New latest race: ${raceName} (${raceDate.toISOString()})`);
+      } else {
+        console.log(`   ⏭️  Not newer than current latest`);
       }
     }
 
@@ -176,29 +209,50 @@ async function uploadConstructorStandings() {
     const standingsPath = path.join(standingsDir, latestRace.file);
     const csvConstructorStandingsData = await readCSV(standingsPath);
 
-    const constructorStandings = csvConstructorStandingsData.map((entry, index) => ({
-      position: parseInt(entry.Position) || index + 1,
-      points: parseFloat(entry.Points) || 0,
-      wins: parseInt(entry.Wins) || 0,
-      constructorId: (entry.Team || '').toLowerCase().replace(/\s+/g, '_'),
-      name: entry.Team || '',
-      nationality: entry.Nationality || '',
-      teamColor: entry.TeamColor ? `#${entry.TeamColor}` : '#cccccc',
-      teamLogo: `/images/constructors/${(entry.Team || '').toLowerCase().replace(/\s+/g, '_')}.png`,
-      carImage: `/images/cars/${(entry.Team || '').toLowerCase().replace(/\s+/g, '_')}.png`,
-      countryFlag: `/images/flags/${(entry.CountryCode || '').toLowerCase()}.png`
-    }));
+    // Team nationality mapping
+    const teamNationalities = {
+      'McLaren': 'British',
+      'Red Bull Racing': 'Austrian',
+      'Mercedes': 'German',
+      'Williams': 'British',
+      'Aston Martin': 'British',
+      'Kick Sauber': 'Swiss',
+      'Ferrari': 'Italian',
+      'Alpine': 'French',
+      'Racing Bulls': 'Italian',
+      'Haas F1 Team': 'American'
+    };
+
+    const constructorStandings = csvConstructorStandingsData.map((entry, index) => {
+      const teamName = entry.TeamName || entry.Team || '';
+      const constructorId = teamName.toLowerCase().replace(/\s+/g, '_');
+      const teamColor = teamColors[teamName] ? `#${teamColors[teamName]}` : '#cccccc';
+
+      return {
+        position: parseInt(entry.Position) || index + 1,
+        points: parseFloat(entry.CumulativePoints) || 0,
+        wins: 0, // Wins data not available in CSV, set to 0
+        constructorId: constructorId,
+        name: teamName,
+        nationality: teamNationalities[teamName] || '',
+        teamColor: teamColor,
+        teamLogo: `/images/constructors/${constructorId}.png`,
+        carImage: `/images/cars/${constructorId}.png`
+      };
+    });
 
     const standingsData = {
       season: 2025,
       round: latestRace.round,
       lastRace: latestRace.raceName,
       date: latestRace.date,
-      standings: constructorStandings
+      standings: constructorStandings,
+      lastUpdate: new Date()
     };
 
     await ConstructorStandings.findOneAndUpdate({ season: 2025 }, standingsData, { upsert: true, new: true });
     console.log(`✅ Uploaded latest constructor standings for ${latestRace.raceName} (Round ${latestRace.round})`);
+    console.log(`   📊 ${constructorStandings.length} constructors processed`);
   } catch (error) {
     console.error('❌ Error uploading constructor standings:', error);
   }
@@ -230,18 +284,37 @@ async function uploadDriverStandings() {
     let latestRace = null;
     let latestDate = new Date(0);
 
+    console.log('🔍 Finding latest race with driver standings...');
+    console.log('   Available CSV files:', files.length);
+    console.log('   Schedule races:', schedule.races.length);
+
     for (const file of files) {
       const raceMatch = file.match(/(.+)_driver_standings\.csv/);
-      if (!raceMatch) continue;
+      if (!raceMatch) {
+        console.log(`   ⚠️  Skipping ${file} - no match`);
+        continue;
+      }
 
       const raceName = raceMatch[1].replace(/_/g, ' ');
-      const raceInfo = schedule.races.find(r => r.raceName === raceName);
-      if (!raceInfo) continue;
+      console.log(`   📄 Processing: ${file} -> "${raceName}"`);
 
-      const raceDate = formatDate(raceInfo.date); // Use consistent date format
+      const raceInfo = schedule.races.find(r => r.raceName === raceName);
+      if (!raceInfo) {
+        console.log(`   ❌ No race info found for "${raceName}"`);
+        continue;
+      }
+
+      console.log(`   ✅ Found race info: Round ${raceInfo.round}, Date: ${raceInfo.date}`);
+
+      const raceDate = new Date(raceInfo.date);
+      console.log(`   📅 Parsed date: ${raceDate.toISOString()}`);
+
       if (raceDate > latestDate) {
         latestDate = raceDate;
-        latestRace = { file, raceName, round: raceInfo.round, date: raceDate };
+        latestRace = { file, raceName, round: raceInfo.round, date: formatDate(raceInfo.date) };
+        console.log(`   🏆 New latest race: ${raceName} (${raceDate.toISOString()})`);
+      } else {
+        console.log(`   ⏭️  Not newer than current latest`);
       }
     }
 
@@ -253,26 +326,34 @@ async function uploadDriverStandings() {
     const standingsPath = path.join(standingsDir, latestRace.file);
     const csvStandingsData = await readCSV(standingsPath);
 
-    const driverStandings = csvStandingsData.map((entry, index) => ({
-      position: parseInt(entry.Position) || index + 1,
-      points: parseFloat(entry.Points) || 0,
-      wins: parseInt(entry.Wins) || 0,
-      driverId: (entry.Driver || '').toLowerCase().replace(/\s+/g, '_'),
-      driverCode: entry.Driver || '',
-      driverNumber: entry.DriverNumber || '',
-      givenName: entry.FirstName || '',
-      familyName: entry.LastName || '',
-      fullName: `${entry.FirstName} ${entry.LastName}`,
-      dateOfBirth: entry.DateOfBirth || '',
-      nationality: entry.Nationality || '',
-      constructorId: (entry.Team || '').toLowerCase().replace(/\s+/g, '_'),
-      constructorName: entry.Team || '',
-      teamColor: entry.TeamColor ? `#${entry.TeamColor}` : '#cccccc',
-      driverImage: `/images/drivers/${(entry.Driver || '').toLowerCase()}.png`,
-      helmet: `/images/helmets/${(entry.Driver || '').toLowerCase()}.png`,
-      countryFlag: `/images/flags/${(entry.CountryCode || '').toLowerCase()}.png`,
-      teamLogo: `/images/constructors/${(entry.Team || '').toLowerCase().replace(/\s+/g, '_')}.png`
-    }));
+    const driverStandings = csvStandingsData.map((entry, index) => {
+      // Handle FullName from standings CSV (e.g., "Lando Norris")
+      const fullName = entry.FullName || entry.Driver || '';
+      const nameParts = fullName.split(' ');
+      const givenName = nameParts[0] || '';
+      const familyName = nameParts.slice(1).join(' ') || '';
+
+      return {
+        position: parseInt(entry.Position) || index + 1,
+        points: parseFloat(entry.CumulativePoints || entry.Points) || 0,
+        wins: parseInt(entry.Wins) || 0,
+        driverId: (entry.Driver || fullName).toLowerCase().replace(/\s+/g, '_'),
+        driverCode: entry.Driver || '',
+        driverNumber: entry.DriverNumber || '',
+        givenName: givenName,
+        familyName: familyName,
+        fullName: fullName,
+        dateOfBirth: entry.DateOfBirth || '',
+        nationality: entry.Nationality || '',
+        constructorId: (entry.TeamName || entry.Team || '').toLowerCase().replace(/\s+/g, '_'),
+        constructorName: entry.TeamName || entry.Team || '',
+        teamColor: entry.TeamColor ? `#${entry.TeamColor}` : '#cccccc',
+        driverImage: `/images/drivers/${(entry.Driver || fullName).toLowerCase().replace(/\s+/g, '_')}.png`,
+        helmet: `/images/helmets/${(entry.Driver || fullName).toLowerCase().replace(/\s+/g, '_')}.png`,
+        countryFlag: `/images/flags/${(entry.CountryCode || '').toLowerCase()}.png`,
+        teamLogo: `/images/constructors/${(entry.TeamName || entry.Team || '').toLowerCase().replace(/\s+/g, '_')}.png`
+      };
+    });
 
     const standingsData = {
       season: 2025,

@@ -4,7 +4,39 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { fetchDriverStandings, fetchSchedule, fetchNews, fetchTelemetry } from '../api/f1Api';
 
-const ImageWithFallback = ({ src, alt, className }) => <img src={src} alt={alt} className={className} loading="lazy" />;
+// Image mapping utilities
+const getDriverImage = (driverCode) => {
+  const normalizedCode = driverCode?.toLowerCase().replace('_', '_');
+  return `/images/driver-${normalizedCode}.png`;
+};
+
+const getTeamImage = (constructorName) => {
+  const normalizedName = constructorName?.toLowerCase().replace(/\s+/g, '_');
+  return `/images/team-${normalizedName}.png`;
+};
+
+const ImageWithFallback = ({ src, alt, className, type = 'general' }) => {
+  const [imgSrc, setImgSrc] = useState(src);
+  const [hasError, setHasError] = useState(false);
+
+  const handleError = () => {
+    if (!hasError) {
+      setHasError(true);
+      // Prioritize local images over external URLs
+      if (type === 'driver') {
+        setImgSrc('/images/driver-placeholder.png');
+      } else if (type === 'team' || type === 'car') {
+        setImgSrc('/images/car-placeholder.png');
+      } else if (type === 'news') {
+        setImgSrc('/images/news-placeholder.png');
+      } else {
+        setImgSrc('/images/car-placeholder.png');
+      }
+    }
+  };
+
+  return <img src={imgSrc} alt={alt} className={className} loading="lazy" onError={handleError} />;
+};
 
 
 export function Home({ onNavigate, favoriteDriver }) {
@@ -226,11 +258,11 @@ export function Home({ onNavigate, favoriteDriver }) {
                         style={{ backgroundColor: driver.teamColor || '#DC0000' }}
                       />
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-f1light font-bold truncate">{driver.fullName}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-f1light font-bold truncate">{driver.fullName || (driver.givenName && driver.familyName ? `${driver.givenName} ${driver.familyName}` : 'Unknown Driver')}</div>
                       <div className="text-f1light/60 text-xs truncate">{driver.constructorName}</div>
                     </div>
-                    <div className="text-f1red font-bold text-sm">P{driver.position}</div>
+                    <div className="text-f1red font-bold text-sm">P{driver.position || '?'}</div>
                   </div>
                 </motion.div>
               ))}
@@ -283,9 +315,10 @@ export function Home({ onNavigate, favoriteDriver }) {
                     transition={{ type: "spring", stiffness: 100, damping: 20 }}
                   >
                     <ImageWithFallback
-                      src={activeDriver.driverImage || `https://source.unsplash.com/1000x500/?f1,car,racing`}
-                      alt={`${activeDriver.fullName}`}
+                      src={getTeamImage(activeDriver.constructorName)}
+                      alt={`${activeDriver.constructorName} car`}
                       className="max-h-full object-contain drop-shadow-2xl"
+                      type="team"
                     />
                   </motion.div>
 
@@ -603,9 +636,10 @@ export function Home({ onNavigate, favoriteDriver }) {
                   transition={{ duration: 0.3 }}
                 >
                   <ImageWithFallback
-                    src={article.urlToImage || `https://source.unsplash.com/400x200/?f1,racing`}
+                    src={article.urlToImage || `/images/news-placeholder.png`}
                     alt={article.title}
                     className="w-full h-full object-cover"
+                    type="news"
                   />
                 </motion.div>
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
@@ -643,8 +677,8 @@ export function Home({ onNavigate, favoriteDriver }) {
                 onClick={() => onNavigate?.('/drivers')}
               >
                 <div className="flex items-center gap-4">
-                  <div className="text-xl font-bold w-6">{driver.position}</div>
-                  <div>{driver.fullName}</div>
+                  <div className="text-xl font-bold w-6">{driver.position || '?'}</div>
+                  <div>{driver.fullName || `${driver.givenName || ''} ${driver.familyName || ''}`.trim() || 'Unknown Driver'}</div>
                 </div>
                 <div className="font-bold text-f1red">{driver.points}</div>
               </motion.div>

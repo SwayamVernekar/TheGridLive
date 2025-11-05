@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import mongoose from 'mongoose';
 
 const TelemetrySchema = new mongoose.Schema({
   season: { type: Number, required: true },

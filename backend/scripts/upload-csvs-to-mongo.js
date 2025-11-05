@@ -78,6 +78,10 @@ async function uploadEvents() {
   }
 }
 
+function formatDate(dateString) {
+  return new Date(dateString).toISOString();
+}
+
 async function uploadDrivers() {
   try {
     console.log('\n👥 Uploading Drivers...');
@@ -96,16 +100,18 @@ async function uploadDrivers() {
       number: driver.DriverNumber || '',
       givenName: driver.FirstName || '',
       familyName: driver.LastName || '',
-      fullName: driver.FullName || `${driver.FirstName} ${driver.LastName}`,
-      dateOfBirth: '',
-      nationality: driver.CountryCode || '',
+      fullName: `${driver.FirstName} ${driver.LastName}`,
+      dateOfBirth: driver.DateOfBirth || '',
+      nationality: driver.Nationality || driver.CountryCode || '',
       team: driver.TeamName || '',
       teamId: (driver.TeamName || '').toLowerCase().replace(/\s+/g, '_'),
       teamColor: driver.TeamColor ? `#${driver.TeamColor}` : '#cccccc',
-      points: parseInt(driver.Points) || 0,
-      wins: 0,
+      points: parseFloat(driver.Points) || 0,
+      wins: parseInt(driver.Wins) || 0,
       position: parseInt(driver.Position) || 0,
-      driverImage: `https://source.unsplash.com/400x400/?f1,driver,portrait,racer,${driver.LastName}`
+      driverImage: `/images/drivers/${(driver.Abbreviation || '').toLowerCase()}.png`,
+      helmet: `/images/helmets/${(driver.Abbreviation || '').toLowerCase()}.png`,
+      countryFlag: `/images/flags/${(driver.CountryCode || '').toLowerCase()}.png`
     }));
 
     const driversData = {
@@ -118,87 +124,6 @@ async function uploadDrivers() {
     console.log(`✅ Uploaded ${drivers.length} drivers`);
   } catch (error) {
     console.error('❌ Error uploading drivers:', error);
-  }
-}
-
-async function uploadDriverStandings() {
-  try {
-    console.log('\n🏎️  Uploading Driver Standings...');
-    const standingsDir = path.join(CSV_DIR, 'standings');
-    if (!fs.existsSync(standingsDir)) {
-      console.log('⚠️  standings directory not found, skipping');
-      return;
-    }
-
-    const files = fs.readdirSync(standingsDir).filter(f => f.includes('driver_standings'));
-    if (files.length === 0) {
-      console.log('⚠️  No driver standings files found, skipping');
-      return;
-    }
-
-    // Get schedule to map race names to rounds and dates
-    const schedule = await Schedule.findOne({ season: 2025 });
-    if (!schedule) {
-      console.log('⚠️  Schedule not found, cannot map rounds. Skipping driver standings upload.');
-      return;
-    }
-
-    // Find the latest race by date that has standings
-    let latestRace = null;
-    let latestDate = new Date(0);
-
-    for (const file of files) {
-      const raceMatch = file.match(/(.+)_driver_standings\.csv/);
-      if (!raceMatch) continue;
-
-      const raceName = raceMatch[1].replace(/_/g, ' ');
-      const raceInfo = schedule.races.find(r => r.raceName === raceName);
-      if (!raceInfo) continue;
-
-      const raceDate = new Date(raceInfo.date);
-      if (raceDate > latestDate) {
-        latestDate = raceDate;
-        latestRace = { file, raceName, round: raceInfo.round };
-      }
-    }
-
-    if (!latestRace) {
-      console.log('⚠️  No valid race found for driver standings, skipping');
-      return;
-    }
-
-    const standingsPath = path.join(standingsDir, latestRace.file);
-    const csvStandingsData = await readCSV(standingsPath);
-
-    const driverStandings = csvStandingsData.map((entry, index) => ({
-      position: parseInt(entry.Position) || index + 1,
-      points: parseFloat(entry.Points) || 0,
-      wins: parseInt(entry.Wins) || 0,
-      driverId: (entry.Driver || '').toLowerCase().replace(/\s+/g, '_'),
-      driverCode: entry.Driver || '',
-      driverNumber: entry.DriverNumber || '',
-      givenName: entry.FirstName || '',
-      familyName: entry.LastName || '',
-      fullName: entry.FullName || `${entry.FirstName} ${entry.LastName}`,
-      dateOfBirth: '',
-      nationality: '',
-      constructorId: (entry.Team || '').toLowerCase().replace(/\s+/g, '_'),
-      constructorName: entry.Team || '',
-      teamColor: entry.TeamColor ? `#${entry.TeamColor}` : '#cccccc',
-      driverImage: `https://source.unsplash.com/400x400/?f1,driver,portrait,racer,${entry.LastName}`
-    }));
-
-    const standingsData = {
-      season: 2025,
-      lastRace: latestRace.raceName,
-      round: latestRace.round,
-      standings: driverStandings
-    };
-
-    await DriverStandings.findOneAndUpdate({ season: 2025 }, standingsData, { upsert: true, new: true });
-    console.log(`✅ Uploaded latest driver standings for ${latestRace.raceName} (Round ${latestRace.round})`);
-  } catch (error) {
-    console.error('❌ Error uploading driver standings:', error);
   }
 }
 
@@ -236,10 +161,10 @@ async function uploadConstructorStandings() {
       const raceInfo = schedule.races.find(r => r.raceName === raceName);
       if (!raceInfo) continue;
 
-      const raceDate = new Date(raceInfo.date);
+      const raceDate = formatDate(raceInfo.date); // Use consistent date format
       if (raceDate > latestDate) {
         latestDate = raceDate;
-        latestRace = { file, raceName, round: raceInfo.round };
+        latestRace = { file, raceName, round: raceInfo.round, date: raceDate };
       }
     }
 
@@ -257,14 +182,18 @@ async function uploadConstructorStandings() {
       wins: parseInt(entry.Wins) || 0,
       constructorId: (entry.Team || '').toLowerCase().replace(/\s+/g, '_'),
       name: entry.Team || '',
-      nationality: '',
+      nationality: entry.Nationality || '',
       teamColor: entry.TeamColor ? `#${entry.TeamColor}` : '#cccccc',
-      teamLogo: `https://upload.wikimedia.org/wikipedia/commons/thumb/3/33/F1.svg/1200px-F1.svg.png`,
-      carImage: `https://source.unsplash.com/800x400/?f1,${entry.Team},car,2025`
+      teamLogo: `/images/constructors/${(entry.Team || '').toLowerCase().replace(/\s+/g, '_')}.png`,
+      carImage: `/images/cars/${(entry.Team || '').toLowerCase().replace(/\s+/g, '_')}.png`,
+      countryFlag: `/images/flags/${(entry.CountryCode || '').toLowerCase()}.png`
     }));
 
     const standingsData = {
       season: 2025,
+      round: latestRace.round,
+      lastRace: latestRace.raceName,
+      date: latestRace.date,
       standings: constructorStandings
     };
 
@@ -272,6 +201,91 @@ async function uploadConstructorStandings() {
     console.log(`✅ Uploaded latest constructor standings for ${latestRace.raceName} (Round ${latestRace.round})`);
   } catch (error) {
     console.error('❌ Error uploading constructor standings:', error);
+  }
+}
+
+async function uploadDriverStandings() {
+  try {
+    console.log('\n🏎️  Uploading Driver Standings...');
+    const standingsDir = path.join(CSV_DIR, 'standings');
+    if (!fs.existsSync(standingsDir)) {
+      console.log('⚠️  standings directory not found, skipping');
+      return;
+    }
+
+    const files = fs.readdirSync(standingsDir).filter(f => f.includes('driver_standings'));
+    if (files.length === 0) {
+      console.log('⚠️  No driver standings files found, skipping');
+      return;
+    }
+
+    // Get schedule to map race names to rounds and dates
+    const schedule = await Schedule.findOne({ season: 2025 });
+    if (!schedule) {
+      console.log('⚠️  Schedule not found, cannot map rounds. Skipping driver standings upload.');
+      return;
+    }
+
+    // Find the latest race by date that has standings
+    let latestRace = null;
+    let latestDate = new Date(0);
+
+    for (const file of files) {
+      const raceMatch = file.match(/(.+)_driver_standings\.csv/);
+      if (!raceMatch) continue;
+
+      const raceName = raceMatch[1].replace(/_/g, ' ');
+      const raceInfo = schedule.races.find(r => r.raceName === raceName);
+      if (!raceInfo) continue;
+
+      const raceDate = formatDate(raceInfo.date); // Use consistent date format
+      if (raceDate > latestDate) {
+        latestDate = raceDate;
+        latestRace = { file, raceName, round: raceInfo.round, date: raceDate };
+      }
+    }
+
+    if (!latestRace) {
+      console.log('⚠️  No valid race found for driver standings, skipping');
+      return;
+    }
+
+    const standingsPath = path.join(standingsDir, latestRace.file);
+    const csvStandingsData = await readCSV(standingsPath);
+
+    const driverStandings = csvStandingsData.map((entry, index) => ({
+      position: parseInt(entry.Position) || index + 1,
+      points: parseFloat(entry.Points) || 0,
+      wins: parseInt(entry.Wins) || 0,
+      driverId: (entry.Driver || '').toLowerCase().replace(/\s+/g, '_'),
+      driverCode: entry.Driver || '',
+      driverNumber: entry.DriverNumber || '',
+      givenName: entry.FirstName || '',
+      familyName: entry.LastName || '',
+      fullName: `${entry.FirstName} ${entry.LastName}`,
+      dateOfBirth: entry.DateOfBirth || '',
+      nationality: entry.Nationality || '',
+      constructorId: (entry.Team || '').toLowerCase().replace(/\s+/g, '_'),
+      constructorName: entry.Team || '',
+      teamColor: entry.TeamColor ? `#${entry.TeamColor}` : '#cccccc',
+      driverImage: `/images/drivers/${(entry.Driver || '').toLowerCase()}.png`,
+      helmet: `/images/helmets/${(entry.Driver || '').toLowerCase()}.png`,
+      countryFlag: `/images/flags/${(entry.CountryCode || '').toLowerCase()}.png`,
+      teamLogo: `/images/constructors/${(entry.Team || '').toLowerCase().replace(/\s+/g, '_')}.png`
+    }));
+
+    const standingsData = {
+      season: 2025,
+      lastRace: latestRace.raceName,
+      round: latestRace.round,
+      date: latestRace.date,
+      standings: driverStandings
+    };
+
+    await DriverStandings.findOneAndUpdate({ season: 2025 }, standingsData, { upsert: true, new: true });
+    console.log(`✅ Uploaded latest driver standings for ${latestRace.raceName} (Round ${latestRace.round})`);
+  } catch (error) {
+    console.error('❌ Error uploading driver standings:', error);
   }
 }
 
@@ -321,16 +335,19 @@ async function uploadRaceResults() {
 
         const results = Object.values(driverResults).map((result, index) => ({
           position: result.position || index + 1,
-          points: result.points,
+          points: calculatePoints(result.position),  // Add a helper function to calculate points
           driverId: (result.driver || '').toLowerCase().replace(/\s+/g, '_'),
           driverName: result.driver || '',
           constructorId: (result.team || '').toLowerCase().replace(/\s+/g, '_'),
           constructorName: result.team || '',
-          grid: result.grid,
+          grid: parseInt(result.grid) || 0,
           laps: result.laps,
-          status: result.status,
+          status: result.status || 'Finished',
           time: result.time,
-          fastestLap: result.fastestLap
+          fastestLap: {
+            time: result.fastestLapTime || '',
+            lap: parseInt(result.fastestLapNumber) || 0
+          }
         }));
 
         // Get round from schedule
@@ -476,3 +493,12 @@ async function main() {
 
 // Run the script
 main().catch(console.error);
+
+// Add helper function to calculate points
+function calculatePoints(position) {
+  const pointsSystem = {
+    1: 25, 2: 18, 3: 15, 4: 12, 5: 10,
+    6: 8, 7: 6, 8: 4, 9: 2, 10: 1
+  };
+  return pointsSystem[position] || 0;
+}

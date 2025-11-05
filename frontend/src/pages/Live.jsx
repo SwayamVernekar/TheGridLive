@@ -21,7 +21,7 @@ const StatCard = ({ icon: Icon, label, value, subtitle, highlight }) => (
 
 export function Live() {
   const [scheduleData, setScheduleData] = useState(null);
-  const [telemetryData, setTelemetryData] = useState([]);
+  const [telemetryData, setTelemetryData] = useState(generateLiveTelemetry());
   const [winPredictions, setWinPredictions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);

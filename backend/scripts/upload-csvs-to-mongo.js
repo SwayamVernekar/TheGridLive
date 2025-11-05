@@ -136,10 +136,38 @@ async function uploadDriverStandings() {
       return;
     }
 
-    // Use the latest standings file
-    const latestFile = files.sort().pop();
-    const standingsPath = path.join(standingsDir, latestFile);
+    // Get schedule to map race names to rounds and dates
+    const schedule = await Schedule.findOne({ season: 2025 });
+    if (!schedule) {
+      console.log('⚠️  Schedule not found, cannot map rounds. Skipping driver standings upload.');
+      return;
+    }
 
+    // Find the latest race by date that has standings
+    let latestRace = null;
+    let latestDate = new Date(0);
+
+    for (const file of files) {
+      const raceMatch = file.match(/(.+)_driver_standings\.csv/);
+      if (!raceMatch) continue;
+
+      const raceName = raceMatch[1].replace(/_/g, ' ');
+      const raceInfo = schedule.races.find(r => r.raceName === raceName);
+      if (!raceInfo) continue;
+
+      const raceDate = new Date(raceInfo.date);
+      if (raceDate > latestDate) {
+        latestDate = raceDate;
+        latestRace = { file, raceName, round: raceInfo.round };
+      }
+    }
+
+    if (!latestRace) {
+      console.log('⚠️  No valid race found for driver standings, skipping');
+      return;
+    }
+
+    const standingsPath = path.join(standingsDir, latestRace.file);
     const csvStandingsData = await readCSV(standingsPath);
 
     const driverStandings = csvStandingsData.map((entry, index) => ({
@@ -160,19 +188,15 @@ async function uploadDriverStandings() {
       driverImage: `https://source.unsplash.com/400x400/?f1,driver,portrait,racer,${entry.LastName}`
     }));
 
-    // Extract race info from filename
-    const raceMatch = latestFile.match(/(.+)_driver_standings\.csv/);
-    const lastRace = raceMatch ? raceMatch[1].replace(/_/g, ' ') : 'Unknown';
-
     const standingsData = {
       season: 2025,
-      lastRace: lastRace,
-      round: 0, // Would need to calculate from schedule
+      lastRace: latestRace.raceName,
+      round: latestRace.round,
       standings: driverStandings
     };
 
     await DriverStandings.findOneAndUpdate({ season: 2025 }, standingsData, { upsert: true, new: true });
-    console.log(`✅ Uploaded driver standings for ${lastRace}`);
+    console.log(`✅ Uploaded latest driver standings for ${latestRace.raceName} (Round ${latestRace.round})`);
   } catch (error) {
     console.error('❌ Error uploading driver standings:', error);
   }
@@ -193,10 +217,38 @@ async function uploadConstructorStandings() {
       return;
     }
 
-    // Use the latest standings file
-    const latestFile = files.sort().pop();
-    const standingsPath = path.join(standingsDir, latestFile);
+    // Get schedule to map race names to rounds and dates
+    const schedule = await Schedule.findOne({ season: 2025 });
+    if (!schedule) {
+      console.log('⚠️  Schedule not found, cannot map rounds. Skipping constructor standings upload.');
+      return;
+    }
 
+    // Find the latest race by date that has standings
+    let latestRace = null;
+    let latestDate = new Date(0);
+
+    for (const file of files) {
+      const raceMatch = file.match(/(.+)_constructor_standings\.csv/);
+      if (!raceMatch) continue;
+
+      const raceName = raceMatch[1].replace(/_/g, ' ');
+      const raceInfo = schedule.races.find(r => r.raceName === raceName);
+      if (!raceInfo) continue;
+
+      const raceDate = new Date(raceInfo.date);
+      if (raceDate > latestDate) {
+        latestDate = raceDate;
+        latestRace = { file, raceName, round: raceInfo.round };
+      }
+    }
+
+    if (!latestRace) {
+      console.log('⚠️  No valid race found for constructor standings, skipping');
+      return;
+    }
+
+    const standingsPath = path.join(standingsDir, latestRace.file);
     const csvConstructorStandingsData = await readCSV(standingsPath);
 
     const constructorStandings = csvConstructorStandingsData.map((entry, index) => ({
@@ -217,7 +269,7 @@ async function uploadConstructorStandings() {
     };
 
     await ConstructorStandings.findOneAndUpdate({ season: 2025 }, standingsData, { upsert: true, new: true });
-    console.log(`✅ Uploaded constructor standings`);
+    console.log(`✅ Uploaded latest constructor standings for ${latestRace.raceName} (Round ${latestRace.round})`);
   } catch (error) {
     console.error('❌ Error uploading constructor standings:', error);
   }

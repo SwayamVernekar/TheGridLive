@@ -1,7 +1,10 @@
 /**
  * F1 API Helper Functions - REVAMPED
  * Centralized API calls to the Node.js backend (Ergast + News API integration)
+ * Includes caching to prevent rate limiting
  */
+
+import apiCache from '../lib/cache.js';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5002';
 
@@ -11,21 +14,28 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5002';
  * @returns {Promise<Object>} Object with standings array and metadata
  */
 export async function fetchDriverStandings(year) {
+  // Check cache first
+  const cached = apiCache.get('fetchDriverStandings', year);
+  if (cached) {
+    console.log('🔄 Using cached driver standings data');
+    return cached;
+  }
+
   console.log('\n🏎️ ========== FETCH DRIVER STANDINGS ==========');
   console.log('Timestamp:', new Date().toISOString());
   console.log('Year parameter:', year || 'not specified (will use current year)');
-  
+
   try {
-    const url = year 
+    const url = year
       ? `${API_BASE_URL}/api/data/standings/drivers?year=${year}`
       : `${API_BASE_URL}/api/data/standings/drivers`;
-    
+
     console.log('API Base URL:', API_BASE_URL);
     console.log('Full request URL:', url);
     console.log('Sending fetch request...');
-    
+
     const response = await fetch(url);
-    
+
     console.log('✓ Response received');
     console.log('Response status:', response.status, response.statusText);
     console.log('Response OK:', response.ok);
@@ -33,30 +43,33 @@ export async function fetchDriverStandings(year) {
       'content-type': response.headers.get('content-type'),
       'content-length': response.headers.get('content-length')
     });
-    
+
     if (!response.ok) {
       console.error('❌ Response not OK!');
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-    
+
     console.log('Parsing JSON response...');
     const data = await response.json();
-    
+
     console.log('✓ JSON parsed successfully');
     console.log('Response data structure:', Object.keys(data));
     console.log('Standings array exists:', Array.isArray(data.standings) ? 'YES' : 'NO');
     console.log('Standings count:', data.standings?.length || 0);
     console.log('Year in response:', data.year);
     console.log('Last update:', data.lastUpdate);
-    
+
     if (data.standings && data.standings.length > 0) {
       console.log('Sample driver (first):', JSON.stringify(data.standings[0], null, 2));
     }
-    
+
     if (data.error) {
       console.warn('⚠️ Response contains error:', data.error);
     }
-    
+
+    // Cache the successful response
+    apiCache.set('fetchDriverStandings', data, year);
+
     console.log('Returning data to component');
     console.log('========== FETCH DRIVER STANDINGS COMPLETE ==========\n');
     return data;
@@ -77,18 +90,29 @@ export async function fetchDriverStandings(year) {
  * @returns {Promise<Object>} Object with standings array and metadata
  */
 export async function fetchConstructorStandings(year) {
+  // Check cache first
+  const cached = apiCache.get('fetchConstructorStandings', year);
+  if (cached) {
+    console.log('🔄 Using cached constructor standings data');
+    return cached;
+  }
+
   try {
     const url = year
       ? `${API_BASE_URL}/api/data/standings/constructors?year=${year}`
       : `${API_BASE_URL}/api/data/standings/constructors`;
-    
+
     const response = await fetch(url);
-    
+
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-    
+
     const data = await response.json();
+
+    // Cache the successful response
+    apiCache.set('fetchConstructorStandings', data, year);
+
     return data;
   } catch (error) {
     console.error('API Constructor Standings Fetch Error:', error);
@@ -102,18 +126,29 @@ export async function fetchConstructorStandings(year) {
  * @returns {Promise<Object>} Object with drivers array and metadata
  */
 export async function fetchDrivers(year) {
+  // Check cache first
+  const cached = apiCache.get('fetchDrivers', year);
+  if (cached) {
+    console.log('🔄 Using cached drivers data');
+    return cached;
+  }
+
   try {
     const url = year
       ? `${API_BASE_URL}/api/data/drivers?year=${year}`
       : `${API_BASE_URL}/api/data/drivers`;
-    
+
     const response = await fetch(url);
-    
+
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-    
+
     const data = await response.json();
+
+    // Cache the successful response
+    apiCache.set('fetchDrivers', data, year);
+
     return data;
   } catch (error) {
     console.error('API Drivers Fetch Error:', error);
@@ -127,18 +162,29 @@ export async function fetchDrivers(year) {
  * @returns {Promise<Object>} Object with teams array and metadata
  */
 export async function fetchTeams(year) {
+  // Check cache first
+  const cached = apiCache.get('fetchTeams', year);
+  if (cached) {
+    console.log('🔄 Using cached teams data');
+    return cached;
+  }
+
   try {
     const url = year
       ? `${API_BASE_URL}/api/data/teams?year=${year}`
       : `${API_BASE_URL}/api/data/teams`;
-    
+
     const response = await fetch(url);
-    
+
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-    
+
     const data = await response.json();
+
+    // Cache the successful response
+    apiCache.set('fetchTeams', data, year);
+
     return data;
   } catch (error) {
     console.error('API Teams Fetch Error:', error);
@@ -152,18 +198,29 @@ export async function fetchTeams(year) {
  * @returns {Promise<Object>} Object with races array, next race, and metadata
  */
 export async function fetchSchedule(year) {
+  // Check cache first
+  const cached = apiCache.get('fetchSchedule', year);
+  if (cached) {
+    console.log('🔄 Using cached schedule data');
+    return cached;
+  }
+
   try {
     const url = year
       ? `${API_BASE_URL}/api/data/schedule?year=${year}`
       : `${API_BASE_URL}/api/data/schedule`;
-    
+
     const response = await fetch(url);
-    
+
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-    
+
     const data = await response.json();
+
+    // Cache the successful response
+    apiCache.set('fetchSchedule', data, year);
+
     return data;
   } catch (error) {
     console.error('API Schedule Fetch Error:', error);
@@ -178,14 +235,25 @@ export async function fetchSchedule(year) {
  * @returns {Promise<Object>} Object with race results and metadata
  */
 export async function fetchRaceResults(year, round) {
+  // Check cache first
+  const cached = apiCache.get('fetchRaceResults', year, round);
+  if (cached) {
+    console.log('🔄 Using cached race results data');
+    return cached;
+  }
+
   try {
     const response = await fetch(`${API_BASE_URL}/api/data/race-results/${year}/${round}`);
-    
+
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-    
+
     const data = await response.json();
+
+    // Cache the successful response
+    apiCache.set('fetchRaceResults', data, year, round);
+
     return data;
   } catch (error) {
     console.error('API Race Results Fetch Error:', error);

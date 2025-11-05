@@ -42,6 +42,19 @@ export default function App() {
     }
   }, [theme]);
 
+  useEffect(() => {
+    if (favoriteDriver) {
+      // Apply team color as accent color
+      document.documentElement.style.setProperty('--accent-color', favoriteDriver.teamColor);
+      document.documentElement.style.setProperty('--accent-color-rgb', hexToRgb(favoriteDriver.teamColor));
+    }
+  }, [favoriteDriver]);
+
+  const hexToRgb = (hex) => {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : null;
+  };
+
   const toggleTheme = () => {
     setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
   };

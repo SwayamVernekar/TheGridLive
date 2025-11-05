@@ -87,6 +87,8 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(0.269 0 0);
   --sidebar-ring: oklch(0.439 0 0);
+  --accent-color: #ff0000; /* Default red */
+  --accent-color-rgb: 255, 0, 0;
 }
 
 @theme inline {

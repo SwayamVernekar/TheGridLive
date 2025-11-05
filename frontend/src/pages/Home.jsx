@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Trophy, ArrowRight, Gauge, Zap, Wind, TrendingUp, Lightbulb, Target, Calendar, MapPin, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { fetchDriverStandings, fetchSchedule, fetchNews } from '../api/f1Api';
+import { fetchDriverStandings, fetchSchedule, fetchNews, fetchTelemetry } from '../api/f1Api';
 
 const ImageWithFallback = ({ src, alt, className }) => <img src={src} alt={alt} className={className} loading="lazy" />;
 
@@ -12,7 +12,9 @@ export function Home({ onNavigate, favoriteDriver }) {
   const [nextRace, setNextRace] = useState(null);
   const [upcomingRaces, setUpcomingRaces] = useState([]);
   const [newsArticles, setNewsArticles] = useState([]);
+  const [telemetryData, setTelemetryData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [telemetryLoading, setTelemetryLoading] = useState(false);
   const [error, setError] = useState(null);
   const [countdown, setCountdown] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
   const [activeDriverId, setActiveDriverId] = useState(favoriteDriver?.driverCode || null);
@@ -50,7 +52,34 @@ export function Home({ onNavigate, favoriteDriver }) {
     loadData();
   }, []);
 
-  const activeDriver = drivers.find(d => d.driverCode === activeDriverId) || drivers[0];
+  // Fetch telemetry data when active driver changes
+  useEffect(() => {
+    const loadTelemetryData = async () => {
+      if (!activeDriverId) return;
+
+      try {
+        setTelemetryLoading(true);
+        const telemetryResponse = await fetchTelemetry(activeDriverId);
+        if (telemetryResponse.error) {
+          console.warn('Telemetry data not available');
+          setTelemetryData([]);
+        } else {
+          setTelemetryData(telemetryResponse.data || []);
+        }
+      } catch (err) {
+        console.error('Error loading telemetry data:', err);
+        setTelemetryData([]);
+      } finally {
+        setTelemetryLoading(false);
+      }
+    };
+
+    loadTelemetryData();
+  }, [activeDriverId]);
+
+  const activeDriver = useMemo(() => {
+    return drivers.find(d => d.driverCode === activeDriverId) || drivers[0];
+  }, [drivers, activeDriverId]);
 
   // Update active driver when favorite changes
   useEffect(() => {
@@ -87,32 +116,8 @@ export function Home({ onNavigate, favoriteDriver }) {
     return () => clearInterval(timer);
   }, [nextRace]);
 
-  // Generate mock telemetry data based on active driver
-  const generateTelemetryData = () => {
-    if (!activeDriver) return [];
-    const baseSpeed = 300 + (parseInt(activeDriver.position) * 5);
-    const baseRpm = 10000 + (parseInt(activeDriver.position) * 500);
-    const dataLength = 20;
-
-    return Array.from({ length: dataLength }, (_, i) => ({
-      lap: i + 1,
-      speed: Math.floor(baseSpeed + Math.sin(i * 0.5) * 20 - Math.cos(i * 0.2) * 10),
-      rpm: Math.floor(baseRpm + Math.sin(i * 0.3) * 2000 - Math.cos(i * 0.1) * 1000),
-      throttle: Math.floor(Math.random() * 80 + 20),
-    }));
-  };
-
-  const telemetryData = generateTelemetryData();
-
-  // Quick stats for active driver
-  const quickStats = {
-    speed: Math.floor(300 + Math.random() * 50),
-    rpm: Math.floor(10000 + Math.random() * 3000),
-    ers: Math.floor(Math.random() * 40),
-    drs: Math.random() > 0.6 ? 'ACTIVE' : 'STANDBY',
-    gear: Math.floor(Math.random() * 7) + 1,
-    brake: Math.floor(Math.random() * 30),
-  };
+  // Use telemetry data from state
+  const currentTelemetryData = telemetryData;
 
   if (loading) {
     return (
@@ -150,7 +155,7 @@ export function Home({ onNavigate, favoriteDriver }) {
       {/* Grid Live Dashboard Layout */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
         {/* Left Sidebar - Driver List */}
-        <div className="xl:col-span-3 lg:col-span-4 space-y-4">
+        <div className="xl:col-span-3 lg:col-span-3 space-y-4">
           <motion.div
             className="glass-strong rounded-lg p-4"
             initial={{ opacity: 0, x: -20 }}
@@ -302,45 +307,7 @@ export function Home({ onNavigate, favoriteDriver }) {
                   ))}
                 </div>
 
-                {/* Quick Insights */}
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                  <QuickStatCard
-                    icon={<Gauge className="w-5 h-5" />}
-                    label="Speed"
-                    value={`${quickStats.speed} km/h`}
-                    color={activeDriver.teamColor}
-                  />
-                  <QuickStatCard
-                    icon={<TrendingUp className="w-5 h-5" />}
-                    label="RPM"
-                    value={quickStats.rpm.toLocaleString()}
-                    color={activeDriver.teamColor}
-                  />
-                  <QuickStatCard
-                    icon={<Zap className="w-5 h-5" />}
-                    label="ERS"
-                    value={`${quickStats.ers}%`}
-                    color={activeDriver.teamColor}
-                  />
-                  <QuickStatCard
-                    icon={<Wind className="w-5 h-5" />}
-                    label="DRS"
-                    value={quickStats.drs}
-                    color={activeDriver.teamColor}
-                  />
-                  <QuickStatCard
-                    icon={<Gauge className="w-5 h-5" />}
-                    label="Gear"
-                    value={quickStats.gear.toString()}
-                    color={activeDriver.teamColor}
-                  />
-                  <QuickStatCard
-                    icon={<TrendingUp className="w-5 h-5" />}
-                    label="Brake"
-                    value={`${quickStats.brake}%`}
-                    color={activeDriver.teamColor}
-                  />
-                </div>
+
               </div>
               )}
             </motion.div>
@@ -349,7 +316,7 @@ export function Home({ onNavigate, favoriteDriver }) {
           {/* Telemetry Graphs */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Loading State for Telemetry */}
-            {loading ? (
+            {telemetryLoading ? (
               <motion.div
                 className="glass-strong rounded-lg p-6 col-span-2 flex items-center justify-center"
                 initial={{ opacity: 0 }}
@@ -378,7 +345,7 @@ export function Home({ onNavigate, favoriteDriver }) {
                   >
                     <h3 className="text-lg font-bold text-f1light mb-3">Lap Speed (km/h)</h3>
                     <ResponsiveContainer width="100%" height={200}>
-                      <AreaChart data={telemetryData}>
+                      <AreaChart data={currentTelemetryData}>
                         <defs>
                           <linearGradient id={`speedGradient-${activeDriverId}`} x1="0" y1="0" x2="0" y2="1">
                             <stop offset="5%" stopColor={activeDriver.teamColor} stopOpacity={0.8}/>
@@ -421,7 +388,7 @@ export function Home({ onNavigate, favoriteDriver }) {
                   >
                     <h3 className="text-lg font-bold text-f1light mb-3">Lap RPM</h3>
                     <ResponsiveContainer width="100%" height={200}>
-                      <LineChart data={telemetryData}>
+                      <LineChart data={currentTelemetryData}>
                         <CartesianGrid stroke="rgba(255,255,255,0.1)" />
                         <XAxis dataKey="lap" stroke="#F5F5F5" style={{ fontSize: '12px' }} />
                         <YAxis stroke="#F5F5F5" style={{ fontSize: '12px' }} />

@@ -1,11 +1,11 @@
-Position,TeamName,Points
-1,McLaren,37.0
-2,Ferrari,21.0
-3,Red Bull Racing,18.0
-4,Mercedes,18.0
-5,Williams,6.0
-6,Racing Bulls,1.0
-7,Aston Martin,0.0
-8,Alpine,0.0
-9,Kick Sauber,0.0
-10,Haas F1 Team,0.0
+Position,TeamName,CumulativePoints
+1,McLaren,180.0
+2,Mercedes,104.0
+3,Red Bull Racing,83.0
+4,Ferrari,66.0
+5,Williams,25.0
+6,Haas F1 Team,20.0
+7,Aston Martin,10.0
+8,Kick Sauber,6.0
+9,Alpine,6.0
+10,Racing Bulls,5.0

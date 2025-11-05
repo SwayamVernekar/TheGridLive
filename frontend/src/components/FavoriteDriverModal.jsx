@@ -1,27 +1,39 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion'; // Using 'framer-motion' for 'motion'
 import { X, Check, Trophy, Users } from 'lucide-react'; // Added Trophy, Users
-
-// --- MOCK DATA/COMPONENTS (Interfaces removed) ---
-const drivers = [
-  { id: 1, name: "Max Verstappen", team: "Red Bull Racing", teamColor: "#0600EF", number: 1, championships: 3 },
-  { id: 2, name: "Lewis Hamilton", team: "Mercedes AMG F1", teamColor: "#00D2BE", number: 44, championships: 7 },
-  { id: 3, name: "Charles Leclerc", team: "Scuderia Ferrari", teamColor: "#DC0000", number: 16, championships: 0 },
-  { id: 4, name: "Lando Norris", team: "McLaren", teamColor: "#FF8700", number: 4, championships: 0 },
-  { id: 5, name: "Fernando Alonso", team: "Aston Martin", teamColor: "#006F62", number: 14, championships: 2 },
-  { id: 6, name: "Sergio Perez", team: "Red Bull Racing", teamColor: "#0600EF", number: 11, championships: 0 },
-  { id: 7, name: "George Russell", team: "Mercedes AMG F1", teamColor: "#00D2BE", number: 63, championships: 0 },
-  { id: 8, name: "Carlos Sainz", team: "Scuderia Ferrari", teamColor: "#DC0000", number: 55, championships: 0 },
-];
 
 const ImageWithFallback = ({ src, alt, className }) => (
   <img src={src} alt={alt} className={className} loading="lazy" />
 );
-// -------------------------------------------------------------------
 
 export function FavoriteDriverModal({ isOpen, onSelect }) {
-  // Removed TypeScript type annotation <Driver | null>
   const [selectedDriver, setSelectedDriver] = useState(null);
+  const [drivers, setDrivers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchDrivers = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch('/api/data/drivers');
+        if (!response.ok) {
+          throw new Error('Failed to fetch drivers');
+        }
+        const data = await response.json();
+        setDrivers(data.drivers || []);
+      } catch (err) {
+        console.error('Error fetching drivers:', err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (isOpen) {
+      fetchDrivers();
+    }
+  }, [isOpen]);
 
   const handleConfirm = () => {
     if (selectedDriver) {
@@ -86,17 +98,39 @@ export function FavoriteDriverModal({ isOpen, onSelect }) {
                 <Users className="w-full h-full" />
               </motion.div>
               <h2 className="text-4xl font-bold text-f1light mb-2">
-                Choose Your Race Engineer
+                Choose Your Favorite Driver
               </h2>
               <p className="text-f1light/80">
                 Select your favorite driver to personalize your dashboard
               </p>
             </div>
 
+            {/* Loading State */}
+            {loading && (
+              <div className="text-center py-8">
+                <div className="w-8 h-8 border-4 border-f1red border-t-transparent rounded-full mx-auto mb-4 animate-spin"></div>
+                <p className="text-f1light/80">Loading drivers...</p>
+              </div>
+            )}
+
+            {/* Error State */}
+            {error && (
+              <div className="text-center py-8">
+                <p className="text-f1red mb-4">Failed to load drivers: {error}</p>
+                <button
+                  onClick={() => window.location.reload()}
+                  className="bg-f1red hover:bg-f1red/80 text-f1light font-bold py-2 px-6 rounded transition-colors"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+
             {/* Driver Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-              {drivers.map((driver, index) => (
-                <motion.div
+            {!loading && !error && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                {drivers.map((driver, index) => (
+                  <motion.div
                   key={driver.id}
                   className={`relative glass-light rounded-lg p-4 cursor-pointer transition-all ${
                     selectedDriver?.id === driver.id ? 'ring-4' : ''
@@ -178,8 +212,9 @@ export function FavoriteDriverModal({ isOpen, onSelect }) {
                     </div>
                   )}
                 </motion.div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
 
             {/* Action Buttons */}
             <div className="flex gap-4 justify-center">

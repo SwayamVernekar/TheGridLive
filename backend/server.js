@@ -27,7 +27,7 @@ const PORT = process.env.PORT || 5002;
 // ============================================
 // External API Configuration
 // ============================================
-const CURRENT_YEAR = 2025; // Update to 2025 when season starts
+const CURRENT_YEAR = 2025; // Current season year
 const NEWS_API_KEY = process.env.NEWS_API_KEY || ''; // User provides this
 const NEWS_API_URL = 'https://newsapi.org/v2';
 const FASTF1_API_URL = process.env.PYTHON_API_URL || null; // Disabled since we're using CSV data directly
@@ -54,7 +54,6 @@ const mongooseOptions = {
   serverSelectionTimeoutMS: CONNECTION_TIMEOUT,
   socketTimeoutMS: 45000,
   bufferCommands: false,
-  bufferMaxEntries: 0,
   maxPoolSize: 10, // Connection pooling
   minPoolSize: 2,
   maxIdleTimeMS: 30000,
@@ -477,6 +476,25 @@ const legendaryDrivers = [
 // API Routes
 // ============================================
 
+// Welcome Endpoint with Request Logging
+app.get('/api/welcome', (req, res) => {
+  const timestamp = new Date().toISOString();
+  const clientIP = req.ip || req.connection.remoteAddress || 'unknown';
+
+  console.log(`[${timestamp}] Welcome endpoint accessed - Method: ${req.method}, Path: ${req.path}, IP: ${clientIP}`);
+
+  res.json({
+    message: 'Welcome to the F1 Web Application Backend!',
+    timestamp: new Date().toISOString(),
+    request: {
+      method: req.method,
+      path: req.path,
+      ip: clientIP,
+      userAgent: req.get('User-Agent') || 'unknown'
+    }
+  });
+});
+
 // Health Check
 app.get('/api/health', async (req, res) => {
   try {
@@ -634,16 +652,16 @@ app.get('/api/data/standings/drivers', async (req, res) => {
     // FALLBACK: Return mock data when MongoDB is unavailable
     console.log('⚠️ MongoDB unavailable - returning fallback data');
     const mockStandings = [
-      { position: 1, points: 549, wins: 19, driverId: 'max_verstappen', driverCode: 'VER', driverNumber: '1', givenName: 'Max', familyName: 'Verstappen', fullName: 'Max Verstappen', dateOfBirth: '1997-09-30', nationality: 'Dutch', constructorId: 'red_bull', constructorName: 'Red Bull Racing', teamColor: '#3671C6', driverImage: 'https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/M/MAXVER01_Max_Verstappen/maxver01.png' },
-      { position: 2, points: 860, wins: 7, driverId: 'norris', driverCode: 'NOR', driverNumber: '4', givenName: 'Lando', familyName: 'Norris', fullName: 'Lando Norris', dateOfBirth: '1999-11-13', nationality: 'British', constructorId: 'mclaren', constructorName: 'McLaren', teamColor: '#FF8000', driverImage: 'https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/L/LANNOR01_Lando_Norris/lannor01.png' },
-      { position: 3, points: 315, wins: 2, driverId: 'leclerc', driverCode: 'LEC', driverNumber: '16', givenName: 'Charles', familyName: 'Leclerc', fullName: 'Charles Leclerc', dateOfBirth: '1997-10-16', nationality: 'Monegasque', constructorId: 'ferrari', constructorName: 'Ferrari', teamColor: '#E8002D', driverImage: 'https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/C/CHALEC01_Charles_Leclerc/chalec01.png' },
-      { position: 4, points: 291, wins: 2, driverId: 'piastri', driverCode: 'PIA', driverNumber: '81', givenName: 'Oscar', familyName: 'Piastri', fullName: 'Oscar Piastri', dateOfBirth: '2001-04-06', nationality: 'Australian', constructorId: 'mclaren', constructorName: 'McLaren', teamColor: '#FF8000', driverImage: 'https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/O/OSCPIA01_Oscar_Piastri/oscpia01.png' },
-      { position: 5, points: 262, wins: 0, driverId: 'sainz', driverCode: 'SAI', driverNumber: '55', givenName: 'Carlos', familyName: 'Sainz', fullName: 'Carlos Sainz', dateOfBirth: '1994-09-01', nationality: 'Spanish', constructorId: 'ferrari', constructorName: 'Ferrari', teamColor: '#E8002D', driverImage: 'https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/C/CARSAI01_Carlos_Sainz/carsai01.png' },
-      { position: 6, points: 223, wins: 2, driverId: 'hamilton', driverCode: 'HAM', driverNumber: '44', givenName: 'Lewis', familyName: 'Hamilton', fullName: 'Lewis Hamilton', dateOfBirth: '1985-01-07', nationality: 'British', constructorId: 'mercedes', constructorName: 'Mercedes', teamColor: '#27F4D2', driverImage: 'https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/L/LEWHAM01_Lewis_Hamilton/lewham01.png' },
-      { position: 7, points: 192, wins: 0, driverId: 'russell', driverCode: 'RUS', driverNumber: '63', givenName: 'George', familyName: 'Russell', fullName: 'George Russell', dateOfBirth: '1998-02-15', nationality: 'British', constructorId: 'mercedes', constructorName: 'Mercedes', teamColor: '#27F4D2', driverImage: 'https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/G/GEORUS01_George_Russell/georus01.png' },
-      { position: 8, points: 152, wins: 0, driverId: 'perez', driverCode: 'PER', driverNumber: '11', givenName: 'Sergio', familyName: 'Pérez', fullName: 'Sergio Pérez', dateOfBirth: '1990-01-26', nationality: 'Mexican', constructorId: 'red_bull', constructorName: 'Red Bull Racing', teamColor: '#3671C6', driverImage: 'https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/S/SERPER01_Sergio_Perez/serper01.png' },
-      { position: 9, points: 86, wins: 0, driverId: 'alonso', driverCode: 'ALO', driverNumber: '14', givenName: 'Fernando', familyName: 'Alonso', fullName: 'Fernando Alonso', dateOfBirth: '1981-07-29', nationality: 'Spanish', constructorId: 'aston_martin', constructorName: 'Aston Martin', teamColor: '#229971', driverImage: 'https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/F/FERALO01_Fernando_Alonso/feralo01.png' },
-      { position: 10, points: 73, wins: 0, driverId: 'hulkenberg', driverCode: 'HUL', driverNumber: '27', givenName: 'Nico', familyName: 'Hülkenberg', fullName: 'Nico Hülkenberg', dateOfBirth: '1987-08-19', nationality: 'German', constructorId: 'haas', constructorName: 'Haas F1 Team', teamColor: '#B6BABD', driverImage: 'https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/N/NICHUL01_Nico_Hulkenberg/nichul01.png' }
+      { position: 1, points: 25, wins: 1, driverId: 'norris', driverCode: 'NOR', driverNumber: '4', givenName: 'Lando', familyName: 'Norris', fullName: 'Lando Norris', dateOfBirth: '1999-11-13', nationality: 'British', constructorId: 'mclaren', constructorName: 'McLaren', teamColor: '#FF8000', driverImage: 'https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/L/LANNOR01_Lando_Norris/lannor01.png' },
+      { position: 2, points: 43, wins: 1, driverId: 'leclerc', driverCode: 'LEC', driverNumber: '16', givenName: 'Charles', familyName: 'Leclerc', fullName: 'Charles Leclerc', dateOfBirth: '1997-10-16', nationality: 'Monegasque', constructorId: 'ferrari', constructorName: 'Ferrari', teamColor: '#E8002D', driverImage: 'https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/C/CHALEC01_Charles_Leclerc/chalec01.png' },
+      { position: 3, points: 58, wins: 1, driverId: 'max_verstappen', driverCode: 'VER', driverNumber: '1', givenName: 'Max', familyName: 'Verstappen', fullName: 'Max Verstappen', dateOfBirth: '1997-09-30', nationality: 'Dutch', constructorId: 'red_bull', constructorName: 'Red Bull Racing', teamColor: '#3671C6', driverImage: 'https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/M/MAXVER01_Max_Verstappen/maxver01.png' },
+      { position: 4, points: 70, wins: 0, driverId: 'bearman', driverCode: 'BEA', driverNumber: '87', givenName: 'Oliver', familyName: 'Bearman', fullName: 'Oliver Bearman', dateOfBirth: '2005-05-08', nationality: 'British', constructorId: 'haas', constructorName: 'Haas F1 Team', teamColor: '#B6BABD', driverImage: 'https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/O/OLIBEA01_Oliver_Bearman/olibea01.png' },
+      { position: 5, points: 80, wins: 0, driverId: 'piastri', driverCode: 'PIA', driverNumber: '81', givenName: 'Oscar', familyName: 'Piastri', fullName: 'Oscar Piastri', dateOfBirth: '2001-04-06', nationality: 'Australian', constructorId: 'mclaren', constructorName: 'McLaren', teamColor: '#FF8000', driverImage: 'https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/O/OSCPIA01_Oscar_Piastri/oscpia01.png' },
+      { position: 6, points: 88, wins: 0, driverId: 'antonelli', driverCode: 'ANT', driverNumber: '12', givenName: 'Andrea Kimi', familyName: 'Antonelli', fullName: 'Andrea Kimi Antonelli', dateOfBirth: '2006-08-25', nationality: 'Italian', constructorId: 'mercedes', constructorName: 'Mercedes', teamColor: '#27F4D2', driverImage: 'https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/A/ANDANT01_Andrea%20Kimi_Antonelli/andant01.png' },
+      { position: 7, points: 94, wins: 0, driverId: 'russell', driverCode: 'RUS', driverNumber: '63', givenName: 'George', familyName: 'Russell', fullName: 'George Russell', dateOfBirth: '1998-02-15', nationality: 'British', constructorId: 'mercedes', constructorName: 'Mercedes', teamColor: '#27F4D2', driverImage: 'https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/G/GEORUS01_George_Russell/georus01.png' },
+      { position: 8, points: 98, wins: 0, driverId: 'hamilton', driverCode: 'HAM', driverNumber: '44', givenName: 'Lewis', familyName: 'Hamilton', fullName: 'Lewis Hamilton', dateOfBirth: '1985-01-07', nationality: 'British', constructorId: 'ferrari', constructorName: 'Ferrari', teamColor: '#E8002D', driverImage: 'https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/L/LEWHAM01_Lewis_Hamilton/lewham01.png' },
+      { position: 9, points: 100, wins: 0, driverId: 'ocon', driverCode: 'OCO', driverNumber: '31', givenName: 'Esteban', familyName: 'Ocon', fullName: 'Esteban Ocon', dateOfBirth: '1996-09-17', nationality: 'French', constructorId: 'haas', constructorName: 'Haas F1 Team', teamColor: '#B6BABD', driverImage: 'https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/E/ESTOCO01_Esteban_Ocon/estoco01.png' },
+      { position: 10, points: 101, wins: 0, driverId: 'bortoleto', driverCode: 'BOR', driverNumber: '5', givenName: 'Gabriel', familyName: 'Bortoleto', fullName: 'Gabriel Bortoleto', dateOfBirth: '2004-10-14', nationality: 'Brazilian', constructorId: 'sauber', constructorName: 'Kick Sauber', teamColor: '#52E252', driverImage: 'https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/G/GABBOR01_Gabriel_Bortoleto/gabbor01.png' }
     ];
 
     const fallbackResult = {

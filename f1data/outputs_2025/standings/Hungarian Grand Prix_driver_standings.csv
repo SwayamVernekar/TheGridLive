@@ -1,21 +1,21 @@
-DriverNumber,FullName,TeamName,Position,Points,CumulativePoints
-4,Lando Norris,McLaren,1.0,25.0,25.0
-81,Oscar Piastri,McLaren,2.0,18.0,43.0
-63,George Russell,Mercedes,3.0,15.0,58.0
-16,Charles Leclerc,Ferrari,4.0,12.0,70.0
-14,Fernando Alonso,Aston Martin,5.0,10.0,80.0
-5,Gabriel Bortoleto,Kick Sauber,6.0,8.0,88.0
-18,Lance Stroll,Aston Martin,7.0,6.0,94.0
-30,Liam Lawson,Racing Bulls,8.0,4.0,98.0
-1,Max Verstappen,Red Bull Racing,9.0,2.0,100.0
-12,Kimi Antonelli,Mercedes,10.0,1.0,101.0
-6,Isack Hadjar,Racing Bulls,11.0,0.0,101.0
-44,Lewis Hamilton,Ferrari,12.0,0.0,101.0
-27,Nico Hulkenberg,Kick Sauber,13.0,0.0,101.0
-55,Carlos Sainz,Williams,14.0,0.0,101.0
-23,Alexander Albon,Williams,15.0,0.0,101.0
-31,Esteban Ocon,Haas F1 Team,16.0,0.0,101.0
-22,Yuki Tsunoda,Red Bull Racing,17.0,0.0,101.0
-43,Franco Colapinto,Alpine,18.0,0.0,101.0
-10,Pierre Gasly,Alpine,19.0,0.0,101.0
-87,Oliver Bearman,Haas F1 Team,20.0,0.0,101.0
+DriverNumber,FullName,TeamName,Position,CumulativePoints
+81,Oscar Piastri,McLaren,1,263.0
+4,Lando Norris,McLaren,2,260.0
+1,Max Verstappen,Red Bull Racing,3,173.0
+63,George Russell,Mercedes,4,162.0
+16,Charles Leclerc,Ferrari,5,142.0
+44,Lewis Hamilton,Ferrari,6,95.0
+12,Kimi Antonelli,Mercedes,7,60.0
+23,Alexander Albon,Williams,8,54.0
+27,Nico Hulkenberg,Kick Sauber,9,37.0
+14,Fernando Alonso,Aston Martin,10,26.0
+31,Esteban Ocon,Haas F1 Team,11,23.0
+18,Lance Stroll,Aston Martin,12,22.0
+6,Isack Hadjar,Racing Bulls,13,21.0
+30,Liam Lawson,Racing Bulls,14,20.0
+10,Pierre Gasly,Alpine,15,19.0
+5,Gabriel Bortoleto,Kick Sauber,16,14.0
+55,Carlos Sainz,Williams,17,13.0
+87,Oliver Bearman,Haas F1 Team,18,6.0
+22,Yuki Tsunoda,Red Bull Racing,19,4.0
+43,Franco Colapinto,Alpine,20,0.0

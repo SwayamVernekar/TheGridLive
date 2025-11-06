@@ -1,0 +1,5 @@
+PLACEHOLDER: Replace with Autodromo Enzo e Dino Ferrari image
+Circuit: Autodromo Enzo e Dino Ferrari, Imola, Italy
+Recommended size: 1200x600px
+Format: PNG or JPG
+Include: Historic track layout or aerial view

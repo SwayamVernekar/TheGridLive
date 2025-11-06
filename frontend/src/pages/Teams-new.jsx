@@ -89,8 +89,8 @@ export function Teams({ onNavigate }) {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: index * 0.1 }}
             whileHover={{ scale: 1.05, boxShadow: '0 20px 40px rgba(0,0,0,0.5)' }}
-            onHoverStart={() => setHoveredCard(team.id)}
-            onHoverEnd={() => setHoveredCard(null)}
+            onMouseEnter={() => setHoveredCard(team.id)}
+            onMouseLeave={() => setHoveredCard(null)}
             onClick={() => onNavigate?.(`/team/${team.id}`)}
           >
             {/* Team color accent top */}

@@ -1,0 +1,5 @@
+PLACEHOLDER: Replace with Miami International Autodrome image
+Circuit: Miami International Autodrome, Florida, USA
+Recommended size: 1200x600px
+Format: PNG or JPG
+Include: Track layout around Hard Rock Stadium

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { motion } from 'motion/react';
+import { motion } from 'framer-motion';
 import { Trophy, TrendingUp, Award, Loader2, Search, Filter } from 'lucide-react';
 import { ImageWithFallback } from '../components/figma/ImageWithFallback';
 import { fetchDrivers } from '../api/f1Api';
@@ -51,9 +51,9 @@ export function Drivers({ onNavigate }) {
     // Search filter
     if (searchTerm) {
       filtered = filtered.filter(driver =>
-        driver.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        driver.team?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        driver.nationality?.toLowerCase().includes(searchTerm.toLowerCase())
+        (driver.fullName || '')?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (driver.team || '')?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (driver.nationality || '')?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
@@ -66,7 +66,7 @@ export function Drivers({ onNavigate }) {
     filtered.sort((a, b) => {
       switch (sortBy) {
         case 'name':
-          return a.fullName.localeCompare(b.fullName);
+          return (a.fullName || '').localeCompare(b.fullName || '');
         case 'points':
           return (b.points || 0) - (a.points || 0);
         case 'wins':
@@ -109,8 +109,9 @@ export function Drivers({ onNavigate }) {
     );
   }
 
-  const maxPoints = Math.max(...drivers.map(d => d.points || 0), 1);
-  const maxWins = Math.max(...drivers.map(d => d.wins || 0), 1);
+  // Season context for progress bars
+  const seasonMaxPoints = 600; // Approximate maximum points possible in a season (25 pts × 24 races)
+  const totalRaces = 24; // Total races in the season
 
   // Get unique teams for filter dropdown
   const uniqueTeams = [...new Set(drivers.map(d => d.team).filter(Boolean))];
@@ -169,10 +170,11 @@ export function Drivers({ onNavigate }) {
           <motion.div
             key={driver.id}
             className="glass-strong rounded-xl overflow-hidden shadow-lg cursor-pointer relative"
-            onHoverStart={() => setHoveredCard(driver.id)}
-            onHoverEnd={() => setHoveredCard(null)}
+            onMouseEnter={() => setHoveredCard(driver.id)}
+            onMouseLeave={() => setHoveredCard(null)}
             onClick={() => onNavigate?.(`/driver/${driver.id}`)}
             whileHover={{ scale: 1.05 }}
+            transition={{ duration: 0.2 }}
           >
             {/* Team color accent */}
             <div
@@ -198,19 +200,19 @@ export function Drivers({ onNavigate }) {
               <div className="relative w-32 h-32 mx-auto mb-4">
                 <div className="w-full h-full rounded-full overflow-hidden bg-f1dark ring-4 ring-offset-2 ring-offset-transparent">
                   <ImageWithFallback
-                    src={driver.driverImage}
-                    alt={driver.fullName}
+                    src={driver.driverImage || ''}
+                    alt={driver.fullName || 'Driver'}
                     className="w-full h-full object-cover"
                   />
                 </div>
 
                 {/* Podium indicator for top 3 */}
-                {driver.position <= 3 && (
+                {(driver.position || 999) <= 3 && (
                   <motion.div
                     className="absolute -bottom-2 -right-2 bg-f1red rounded-full p-2 text-white text-xs font-bold"
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
-                    transition={{ delay: 0.2 + driver.position * 0.1 }}
+                    transition={{ delay: 0.2 + (driver.position || 0) * 0.1 }}
                   >
                     🏆
                   </motion.div>
@@ -218,14 +220,14 @@ export function Drivers({ onNavigate }) {
               </div>
 
               {/* Driver Name & Team */}
-              <h3 className="text-xl font-bold text-f1light text-center mb-1">{driver.fullName}</h3>
-              <div className="text-center text-f1red font-bold text-sm mb-2">#{driver.number}</div>
+              <h3 className="text-xl font-bold text-f1light text-center mb-1">{driver.fullName || 'Unknown Driver'}</h3>
+              <div className="text-center text-f1red font-bold text-sm mb-2">#{driver.number || 'N/A'}</div>
               <div className="flex items-center justify-center gap-2 mb-6">
                 <div
                   className="w-3 h-3 rounded-full"
-                  style={{ backgroundColor: `#${driver.teamColor}` }}
+                  style={{ backgroundColor: `#${driver.teamColor || 'FFFFFF'}` }}
                 />
-                <p className="text-f1light/80 text-sm">{driver.team}</p>
+                <p className="text-f1light/80 text-sm">{driver.team || 'Unknown Team'}</p>
               </div>
 
               {/* Points */}
@@ -235,16 +237,19 @@ export function Drivers({ onNavigate }) {
                     <Award className="w-4 h-4 text-f1red" />
                     <span className="text-f1light/80 text-sm">Points</span>
                   </div>
-                  <span className="font-bold text-f1red">{driver.points}</span>
+                  <span className="font-bold text-f1red">{driver.points || 0}</span>
                 </div>
-                <div className="h-2 bg-f1dark rounded-full overflow-hidden">
+                <div className="h-2 bg-f1dark rounded-full overflow-hidden relative">
                   <motion.div
                     className="h-full rounded-full"
                     style={{ background: `linear-gradient(90deg, #${driver.teamColor || 'DC0000'}, #DC0000)` }}
                     initial={{ width: 0 }}
-                    animate={{ width: `${(driver.points / maxPoints) * 100}%` }}
+                    animate={{ width: `${Math.min(100, ((driver.points || 0) / seasonMaxPoints) * 100)}%` }}
                     transition={{ duration: 1 }}
                   />
+                </div>
+                <div className="text-xs text-f1light/40 mt-1">
+                  {((driver.points || 0) / seasonMaxPoints * 100).toFixed(1)}% of season max
                 </div>
               </div>
 
@@ -255,27 +260,53 @@ export function Drivers({ onNavigate }) {
                     <Trophy className="w-4 h-4 text-f1red" />
                     <span className="text-f1light/80 text-sm">Wins</span>
                   </div>
-                  <span className="font-bold text-f1light">{driver.wins}</span>
+                  <span className="font-bold text-f1light">{driver.wins || 0}</span>
                 </div>
-                <div className="h-2 bg-f1dark rounded-full overflow-hidden">
+                <div className="h-2 bg-f1dark rounded-full overflow-hidden relative">
                   <motion.div
                     className="h-full bg-f1red rounded-full"
                     initial={{ width: 0 }}
-                    animate={{ width: `${(driver.wins / maxWins) * 100}%` }}
+                    animate={{ width: `${Math.min(100, ((driver.wins || 0) / totalRaces) * 100)}%` }}
                     transition={{ duration: 1, delay: 0.2 }}
                   />
+                </div>
+                <div className="text-xs text-f1light/40 mt-1">
+                  {driver.wins || 0} of {totalRaces} races
+                </div>
+              </div>
+
+              {/* Podiums */}
+              <div className="mb-4">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4 text-f1red" />
+                    <span className="text-f1light/80 text-sm">Podiums</span>
+                  </div>
+                  <span className="font-bold text-f1light">{driver.podiums || 0}</span>
+                </div>
+                <div className="h-2 bg-f1dark rounded-full overflow-hidden relative">
+                  <motion.div
+                    className="h-full rounded-full"
+                    style={{ background: `linear-gradient(90deg, #${driver.teamColor || 'DC0000'}, #FFA500)` }}
+                    initial={{ width: 0 }}
+                    animate={{ width: `${Math.min(100, ((driver.podiums || 0) / totalRaces) * 100)}%` }}
+                    transition={{ duration: 1, delay: 0.4 }}
+                  />
+                </div>
+                <div className="text-xs text-f1light/40 mt-1">
+                  {((driver.podiums || 0) / totalRaces * 100).toFixed(0)}% podium rate
                 </div>
               </div>
 
               {/* Stats Grid */}
               <div className="grid grid-cols-2 gap-4 pt-4 border-t border-f1light/10">
                 <div className="text-center">
-                  <div className="text-f1light/60 text-xs mb-1">Podiums</div>
-                  <div className="text-f1light font-bold">{driver.podiums}</div>
+                  <div className="text-f1light/60 text-xs mb-1">Position</div>
+                  <div className="text-f1light font-bold">P{driver.position || 'N/A'}</div>
                 </div>
                 <div className="text-center">
                   <div className="text-f1light/60 text-xs mb-1">Number</div>
-                  <div className="text-f1light font-bold">#{driver.number}</div>
+                  <div className="text-f1light font-bold">#{driver.number || 'N/A'}</div>
                 </div>
               </div>
             </div>

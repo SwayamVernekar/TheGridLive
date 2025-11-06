@@ -8,6 +8,7 @@ const DriverStandingsSchema = new mongoose.Schema({
     position: { type: Number, required: true },
     points: { type: Number, required: true },
     wins: { type: Number, default: 0 },
+    podiums: { type: Number, default: 0 },
     driverId: { type: String, required: true },
     driverCode: { type: String, required: true },
     driverNumber: { type: String, required: true },

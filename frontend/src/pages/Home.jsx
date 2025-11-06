@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
-import { Trophy, ArrowRight, Gauge, Zap, Wind, TrendingUp, Lightbulb, Target, Calendar, MapPin, AlertCircle } from 'lucide-react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { Trophy, ArrowRight, Gauge, Zap, Wind, TrendingUp, Lightbulb, Target, Calendar, MapPin, AlertCircle, Award } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { fetchDriverStandings, fetchSchedule, fetchNews, fetchTelemetry } from '../api/f1Api';
@@ -51,16 +51,68 @@ export function Home({ onNavigate, favoriteDriver }) {
   const [countdown, setCountdown] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
   const [activeDriverId, setActiveDriverId] = useState(favoriteDriver?.driverCode || null);
 
+  // Generate generic mock telemetry data
+  const generateMockTelemetry = useCallback(() => {
+    return Array.from({ length: 20 }, (_, i) => ({
+      lap: i + 1,
+      speed: 250 + Math.random() * 80,
+      rpm: 11000 + Math.random() * 3000,
+      throttle: 70 + Math.random() * 30,
+      brake: Math.random() * 100,
+    }));
+  }, []);
+
+  // Generate driver-specific telemetry data based on their performance
+  const generateDriverSpecificTelemetry = useCallback((driver) => {
+    if (!driver) return generateMockTelemetry();
+    
+    // Base stats on driver position and team performance
+    const position = driver.position || 10;
+    const points = driver.points || 0;
+    
+    // Better drivers have higher base speeds and more consistent performance
+    const baseSpeed = position <= 3 ? 310 : position <= 7 ? 300 : position <= 15 ? 290 : 280;
+    const speedVariation = position <= 3 ? 20 : position <= 7 ? 25 : 30;
+    
+    const baseRPM = position <= 3 ? 13000 : position <= 7 ? 12500 : 12000;
+    const rpmVariation = 2000;
+    
+    return Array.from({ length: 25 }, (_, i) => {
+      // Simulate tire degradation over laps
+      const tireDegradation = Math.min(i / 25, 0.15);
+      const lapSpeedModifier = 1 - tireDegradation;
+      
+      return {
+        lap: i + 1,
+        speed: (baseSpeed + Math.random() * speedVariation - speedVariation / 2) * lapSpeedModifier,
+        rpm: baseRPM + Math.random() * rpmVariation - rpmVariation / 2,
+        throttle: 75 + Math.random() * 20,
+        brake: 15 + Math.random() * 25,
+        position: position,
+        compound: i < 15 ? 'SOFT' : 'MEDIUM',
+        tyreLife: i < 15 ? i + 1 : i - 14
+      };
+    });
+  }, [generateMockTelemetry]);
+
   // Fetch real data
   useEffect(() => {
+    console.log('[Home] Starting to load data...');
     const loadData = async () => {
       try {
         setLoading(true);
+        console.log('[Home] Fetching standings, schedule, and news...');
         const [standingsResponse, scheduleResponse, newsResponse] = await Promise.all([
           fetchDriverStandings(),
           fetchSchedule(),
           fetchNews()
         ]);
+
+        console.log('[Home] Responses received:', {
+          standings: standingsResponse,
+          schedule: scheduleResponse,
+          news: newsResponse
+        });
 
         if (standingsResponse.error) throw new Error(standingsResponse.error);
         if (scheduleResponse.error) throw new Error(scheduleResponse.error);
@@ -70,48 +122,77 @@ export function Home({ onNavigate, favoriteDriver }) {
         setUpcomingRaces((scheduleResponse.races || []).slice(0, 3));
         setNewsArticles(newsResponse.articles || []);
 
+        console.log('[Home] Data set. Drivers count:', standingsResponse.standings?.length);
+
         if (!activeDriverId && standingsResponse.standings?.length > 0) {
           setActiveDriverId(standingsResponse.standings[0].driverCode);
+          console.log('[Home] Set active driver to:', standingsResponse.standings[0].driverCode);
         }
       } catch (err) {
-        console.error('Error loading home data:', err);
+        console.error('[Home] Error loading home data:', err);
         setError(err.message);
       } finally {
         setLoading(false);
+        console.log('[Home] Loading complete');
       }
     };
 
     loadData();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const activeDriver = useMemo(() => {
+    console.log('[Home] Computing activeDriver. activeDriverId:', activeDriverId, 'drivers count:', drivers.length);
+    const driver = drivers.find(d => d.driverCode === activeDriverId) || drivers[0];
+    console.log('[Home] Active driver found:', driver?.fullName, driver?.driverCode);
+    // Ensure teamColor is properly formatted
+    if (driver && driver.teamColor) {
+      driver.teamColor = driver.teamColor.startsWith('#') ? driver.teamColor : `#${driver.teamColor}`;
+    }
+    return driver;
+  }, [drivers, activeDriverId]);
+
+  // Debug: Track activeDriverId changes
+  useEffect(() => {
+    console.log('[Home] activeDriverId changed to:', activeDriverId);
+  }, [activeDriverId]);
 
   // Fetch telemetry data when active driver changes
   useEffect(() => {
     const loadTelemetryData = async () => {
-      if (!activeDriverId) return;
+      if (!activeDriverId || !activeDriver) {
+        console.log('[Home] Skipping telemetry load - no active driver');
+        return;
+      }
 
       try {
         setTelemetryLoading(true);
-        const telemetryResponse = await fetchTelemetry(activeDriverId);
-        if (telemetryResponse.error) {
-          console.warn('Telemetry data not available');
-          setTelemetryData([]);
+        console.log('[Home] Loading telemetry for driver:', activeDriverId, activeDriver.fullName);
+        
+        const telemetryResponse = await fetchTelemetry(activeDriverId, {
+          year: new Date().getFullYear()
+        });
+        
+        console.log('[Home] Telemetry response:', telemetryResponse);
+        
+        if (telemetryResponse.error || !telemetryResponse.data || telemetryResponse.data.length === 0) {
+          console.warn('[Home] No telemetry data available, using simulated data based on driver stats');
+          // Generate realistic data based on driver's actual performance
+          setTelemetryData(generateDriverSpecificTelemetry(activeDriver));
         } else {
-          setTelemetryData(telemetryResponse.data || []);
+          console.log('[Home] Using real telemetry data:', telemetryResponse.data.length, 'laps');
+          setTelemetryData(telemetryResponse.data);
         }
       } catch (err) {
-        console.error('Error loading telemetry data:', err);
-        setTelemetryData([]);
+        console.error('[Home] Error loading telemetry data:', err);
+        // Use driver-specific simulated data as fallback
+        setTelemetryData(generateDriverSpecificTelemetry(activeDriver));
       } finally {
         setTelemetryLoading(false);
       }
     };
 
     loadTelemetryData();
-  }, [activeDriverId]);
-
-  const activeDriver = useMemo(() => {
-    return drivers.find(d => d.driverCode === activeDriverId) || drivers[0];
-  }, [drivers, activeDriverId]);
+  }, [activeDriverId, activeDriver, generateDriverSpecificTelemetry]);
 
   // Update active driver when favorite changes
   useEffect(() => {
@@ -148,8 +229,15 @@ export function Home({ onNavigate, favoriteDriver }) {
     return () => clearInterval(timer);
   }, [nextRace]);
 
-  // Use telemetry data from state
-  const currentTelemetryData = telemetryData;
+  // Use telemetry data from state with fallback to driver-specific mock data
+  const currentTelemetryData = useMemo(() => {
+    console.log('[Home] Computing currentTelemetryData. telemetryData length:', telemetryData.length, 'activeDriver:', activeDriver?.fullName);
+    return telemetryData.length > 0 
+      ? telemetryData 
+      : generateDriverSpecificTelemetry(activeDriver);
+  }, [telemetryData, activeDriver, generateDriverSpecificTelemetry]);
+
+  console.log('[Home] Render. activeDriverId:', activeDriverId, 'activeDriver:', activeDriver?.fullName, 'loading:', loading);
 
   if (loading) {
     return (
@@ -172,6 +260,23 @@ export function Home({ onNavigate, favoriteDriver }) {
         <AlertCircle className="w-12 h-12 text-f1red mx-auto mb-4" />
         <h2 className="text-2xl font-bold text-f1light mb-2">Error Loading Data</h2>
         <p className="text-f1light/80 mb-4">{error}</p>
+        <button
+          onClick={() => window.location.reload()}
+          className="bg-f1red hover:bg-f1red/80 text-f1light font-bold py-2 px-6 rounded transition-colors"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  // Safety check - if no drivers data, show loading state
+  if (!loading && drivers.length === 0) {
+    return (
+      <div className="glass-strong rounded-lg p-8 text-center">
+        <AlertCircle className="w-12 h-12 text-f1red mx-auto mb-4" />
+        <h2 className="text-2xl font-bold text-f1light mb-2">No Data Available</h2>
+        <p className="text-f1light/80 mb-4">Unable to load driver standings. Please check if the backend server is running.</p>
         <button
           onClick={() => window.location.reload()}
           className="bg-f1red hover:bg-f1red/80 text-f1light font-bold py-2 px-6 rounded transition-colors"
@@ -219,20 +324,32 @@ export function Home({ onNavigate, favoriteDriver }) {
             </div>
 
             <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-              {drivers.map((driver, index) => (
-                <motion.div
-                  key={driver.driverCode}
-                  className={`p-3 rounded-lg cursor-pointer transition-all relative overflow-hidden ${
-                    activeDriverId === driver.driverCode ? 'glass-light' : 'hover:bg-white/5'
-                  }`}
-                  onClick={() => setActiveDriverId(driver.driverCode)}
-                  whileHover={{ scale: 1.02 }}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.3, delay: index * 0.05 }}
-                >
+              {console.log('[Home] Rendering driver list. Drivers:', drivers.length)}
+              {drivers.length === 0 ? (
+                <div className="text-f1light/60 text-center py-4">No drivers available</div>
+              ) : (
+                drivers.map((driver, index) => {
+                  const isActive = activeDriverId === driver.driverCode;
+                  console.log('[Home] Driver render:', driver.fullName, 'code:', driver.driverCode, 'isActive:', isActive);
+                  return (
+                  <motion.div
+                    key={driver.driverCode || driver.driverId || `driver-${index}`}
+                    className={`p-3 rounded-lg cursor-pointer transition-all relative overflow-hidden ${
+                      isActive ? 'glass-light' : 'hover:bg-white/5'
+                    }`}
+                    onClick={() => {
+                      console.log('[Home] Driver clicked:', driver.driverCode, driver.fullName);
+                      console.log('[Home] Current activeDriverId before:', activeDriverId);
+                      setActiveDriverId(driver.driverCode);
+                      console.log('[Home] Setting activeDriverId to:', driver.driverCode);
+                    }}
+                    whileHover={{ scale: 1.02 }}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.3, delay: index * 0.05 }}
+                  >
                   {/* Active driver highlight ring */}
-                  {activeDriverId === driver.driverCode && (
+                  {isActive && (
                     <motion.div
                       className="absolute inset-0 rounded-lg"
                       style={{
@@ -265,7 +382,9 @@ export function Home({ onNavigate, favoriteDriver }) {
                     <div className="text-f1red font-bold text-sm">P{driver.position || '?'}</div>
                   </div>
                 </motion.div>
-              ))}
+                  );
+                })
+              )}
             </div>
           </motion.div>
         </div>
@@ -273,16 +392,16 @@ export function Home({ onNavigate, favoriteDriver }) {
         {/* Main Content Area */}
         <div className="lg:col-span-9 space-y-6">
           {/* Active Driver Car Display */}
+          {activeDriver ? (
           <AnimatePresence mode="wait">
             <motion.div
-              key={activeDriverId}
+              key={`driver-${activeDriverId}-${activeDriver?.fullName}`}
               className="glass-strong rounded-lg p-8 relative overflow-hidden"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
               transition={{ duration: 0.5 }}
             >
-              {activeDriver && (
               <div>
                 {/* Header */}
                 <div className="flex justify-between items-start mb-6">
@@ -340,11 +459,43 @@ export function Home({ onNavigate, favoriteDriver }) {
                   ))}
                 </div>
 
+                {/* Driver Stats Section */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <QuickStatCard
+                    icon={<Trophy />}
+                    label="Points"
+                    value={activeDriver.points || 0}
+                    color={activeDriver.teamColor || '#DC0000'}
+                  />
+                  <QuickStatCard
+                    icon={<Award />}
+                    label="Wins"
+                    value={activeDriver.wins || 0}
+                    color={activeDriver.teamColor || '#DC0000'}
+                  />
+                  <QuickStatCard
+                    icon={<TrendingUp />}
+                    label="Position"
+                    value={`P${activeDriver.position || '?'}`}
+                    color={activeDriver.teamColor || '#DC0000'}
+                  />
+                  <QuickStatCard
+                    icon={<Target />}
+                    label="Number"
+                    value={`#${activeDriver.driverNumber || activeDriver.number || '?'}`}
+                    color={activeDriver.teamColor || '#DC0000'}
+                  />
+                </div>
+
 
               </div>
-              )}
             </motion.div>
           </AnimatePresence>
+          ) : (
+            <div className="glass-strong rounded-lg p-8 text-center">
+              <p className="text-f1light/60">No driver selected</p>
+            </div>
+          )}
 
           {/* Telemetry Graphs */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -364,7 +515,7 @@ export function Home({ onNavigate, favoriteDriver }) {
                   <p className="text-f1light/60">Loading telemetry data...</p>
                 </div>
               </motion.div>
-            ) : (
+            ) : activeDriver ? (
               <>
                 {/* Speed Graph */}
                 <AnimatePresence mode="wait">
@@ -376,13 +527,18 @@ export function Home({ onNavigate, favoriteDriver }) {
                     exit={{ opacity: 0, scale: 0.95 }}
                     transition={{ duration: 0.5 }}
                   >
-                    <h3 className="text-lg font-bold text-f1light mb-3">Lap Speed (km/h)</h3>
+                    <h3 className="text-lg font-bold text-f1light mb-3 flex items-center justify-between">
+                      <span>Lap Speed (km/h)</span>
+                      {telemetryData.length === 0 && (
+                        <span className="text-xs text-f1light/50 font-normal">Simulated Data</span>
+                      )}
+                    </h3>
                     <ResponsiveContainer width="100%" height={200}>
                       <AreaChart data={currentTelemetryData}>
                         <defs>
                           <linearGradient id={`speedGradient-${activeDriverId}`} x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor={activeDriver.teamColor} stopOpacity={0.8}/>
-                            <stop offset="95%" stopColor={activeDriver.teamColor} stopOpacity={0.1}/>
+                            <stop offset="5%" stopColor={activeDriver?.teamColor || '#DC0000'} stopOpacity={0.8}/>
+                            <stop offset="95%" stopColor={activeDriver?.teamColor || '#DC0000'} stopOpacity={0.1}/>
                           </linearGradient>
                         </defs>
                         <CartesianGrid stroke="rgba(255,255,255,0.1)" />
@@ -399,7 +555,7 @@ export function Home({ onNavigate, favoriteDriver }) {
                         <Area
                           type="monotone"
                           dataKey="speed"
-                          stroke={activeDriver.teamColor}
+                          stroke={activeDriver?.teamColor || '#DC0000'}
                           strokeWidth={3}
                           fill={`url(#speedGradient-${activeDriverId})`}
                           animationDuration={1000}
@@ -419,7 +575,12 @@ export function Home({ onNavigate, favoriteDriver }) {
                     exit={{ opacity: 0, scale: 0.95 }}
                     transition={{ duration: 0.5 }}
                   >
-                    <h3 className="text-lg font-bold text-f1light mb-3">Lap RPM</h3>
+                    <h3 className="text-lg font-bold text-f1light mb-3 flex items-center justify-between">
+                      <span>Lap RPM</span>
+                      {telemetryData.length === 0 && (
+                        <span className="text-xs text-f1light/50 font-normal">Simulated Data</span>
+                      )}
+                    </h3>
                     <ResponsiveContainer width="100%" height={200}>
                       <LineChart data={currentTelemetryData}>
                         <CartesianGrid stroke="rgba(255,255,255,0.1)" />
@@ -436,7 +597,7 @@ export function Home({ onNavigate, favoriteDriver }) {
                         <Line
                           type="monotone"
                           dataKey="rpm"
-                          stroke={activeDriver.teamColor}
+                          stroke={activeDriver?.teamColor || '#DC0000'}
                           strokeWidth={3}
                           dot={false}
                           animationDuration={1000}
@@ -446,7 +607,7 @@ export function Home({ onNavigate, favoriteDriver }) {
                   </motion.div>
                 </AnimatePresence>
               </>
-            )}
+            ) : null}
           </div>
 
           {/* AI Race Predictions - Keys to Victory */}

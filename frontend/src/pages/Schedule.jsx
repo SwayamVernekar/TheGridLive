@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Calendar, MapPin, Clock, Trophy, AlertCircle, Loader2 } from 'lucide-react';
+import { Calendar, MapPin, Clock, Trophy, Loader2, Activity } from 'lucide-react';
 import { fetchSchedule } from '../api/f1Api';
 
 const ImageWithFallback = ({ src, alt, className }) => (
@@ -55,6 +55,11 @@ export function Schedule({ onNavigate }) {
     const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
 
     return { days, hours, minutes };
+  };
+
+  // Get circuit image path
+  const getCircuitImage = (circuitId) => {
+    return `/images/circuits/circuit-${circuitId}.txt`;
   };
 
   if (loading) {
@@ -189,8 +194,17 @@ export function Schedule({ onNavigate }) {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3, delay: index * 0.05 }}
             >
+              {/* Background Image - must be first and behind */}
+              <div className="absolute inset-0 opacity-5 z-0">
+                <ImageWithFallback
+                  src={`https://source.unsplash.com/800x400/?f1,circuit,${race.circuitId}`}
+                  alt={race.circuitName}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+
               {/* Status Badge */}
-              <div className="absolute top-4 right-4">
+              <div className="absolute top-4 right-4 z-10">
                 <span className={`px-3 py-1 rounded-full text-xs font-bold ${
                   isCompleted
                     ? 'bg-green-500/20 text-green-400'
@@ -202,7 +216,7 @@ export function Schedule({ onNavigate }) {
                 </span>
               </div>
 
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between relative z-10">
                 <div className="flex items-center gap-4">
                   {/* Round Number */}
                   <div className="w-12 h-12 rounded-full bg-f1red flex items-center justify-center font-bold text-f1light">
@@ -241,10 +255,14 @@ export function Schedule({ onNavigate }) {
                 <div className="text-right">
                   {isCompleted ? (
                     <button
-                      onClick={() => onNavigate?.(`/race-results/${season}/${race.round}`)}
-                      className="px-4 py-2 bg-green-500/20 text-green-400 rounded-lg hover:bg-green-500/30 transition-colors"
+                      onClick={() => {
+                        console.log('Navigating to:', `/race-telemetry/${season}/${race.round}`);
+                        onNavigate?.(`/race-telemetry/${season}/${race.round}`);
+                      }}
+                      className="px-4 py-2 bg-f1red/20 text-f1red rounded-lg hover:bg-f1red/30 transition-colors inline-flex items-center gap-2"
                     >
-                      View Results
+                      <Activity className="w-4 h-4" />
+                      View Details
                     </button>
                   ) : countdown ? (
                     <div className="text-sm text-f1light/60">
@@ -256,12 +274,15 @@ export function Schedule({ onNavigate }) {
                 </div>
               </div>
 
-              {/* Background Image */}
-              <div className="absolute inset-0 opacity-5">
-                <ImageWithFallback
-                  src={`https://source.unsplash.com/800x400/?f1,circuit,${race.circuitId}`}
+              {/* Circuit Image */}
+              <div className="mt-4 rounded-lg overflow-hidden relative z-10">
+                <img 
+                  src={getCircuitImage(race.circuitId)}
                   alt={race.circuitName}
-                  className="w-full h-full object-cover"
+                  className="w-full h-32 object-contain bg-f1dark/50"
+                  onError={(e) => {
+                    e.target.src = '/images/circuit-placeholder.png';
+                  }}
                 />
               </div>
             </motion.div>

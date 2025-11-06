@@ -21,17 +21,22 @@ export function News() {
       try {
         setLoading(true);
         setError(null);
+        console.log('Fetching news...');
         const response = await fetchNews();
+        console.log('News response:', response);
 
         if (response.error) {
           throw new Error(response.error);
         }
 
-        setNewsArticles(response.articles || []);
-        setFilteredArticles(response.articles || []);
+        const articles = response.articles || [];
+        console.log('Articles loaded:', articles.length);
+        
+        setNewsArticles(articles);
+        setFilteredArticles(articles);
       } catch (err) {
         console.error('Failed to load news:', err);
-        setError('Failed to load news articles. Please try again later.');
+        setError('Failed to load news articles. The news service may be unavailable.');
       } finally {
         setLoading(false);
       }
@@ -112,12 +117,17 @@ export function News() {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.3 }}
           className="text-center"
         >
-          <div className="inline-block animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-f1red mb-4"></div>
-          <p className="text-f1light text-xl">Loading latest news...</p>
+          <div className="relative inline-block mb-6">
+            <div className="inline-block animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-f1red"></div>
+            <div className="absolute inset-0 rounded-full border-4 border-f1red/20"></div>
+          </div>
+          <p className="text-f1light text-xl font-bold">Loading latest F1 news...</p>
+          <p className="text-f1light/60 text-sm mt-2">Fetching the latest updates</p>
         </motion.div>
       </div>
     );
@@ -125,15 +135,18 @@ export function News() {
 
   if (error) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-screen p-4">
         <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
           className="glass-strong rounded-xl p-8 text-center max-w-md"
         >
           <AlertCircle className="w-16 h-16 text-f1red mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-f1light mb-2">Unable to Load News</h2>
           <p className="text-f1light/70 mb-4">{error}</p>
+          <p className="text-f1light/50 text-sm mb-6">
+            Make sure the backend is running on port 5002 and properly configured.
+          </p>
           <button
             onClick={() => window.location.reload()}
             className="px-6 py-2 bg-f1red text-white rounded-lg hover:bg-f1red/80 transition-colors"
@@ -198,48 +211,81 @@ export function News() {
       </div>
 
       {filteredArticles.length === 0 && !loading && (
-        <div className="text-center py-12">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center py-12 glass-strong rounded-xl p-8"
+        >
           <Tag className="w-16 h-16 text-f1light/30 mx-auto mb-4" />
-          <p className="text-f1light/60 text-lg">No news articles available at the moment.</p>
-        </div>
+          <p className="text-f1light/60 text-lg mb-2">No news articles found</p>
+          <p className="text-f1light/40 text-sm">
+            {searchTerm || selectedCategory !== 'All' 
+              ? 'Try adjusting your search or filters' 
+              : 'Check back later for the latest F1 news'}
+          </p>
+        </motion.div>
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredArticles.map((article, index) => (
           <motion.div
-            key={article.url || index}
-            className="glass-strong rounded-xl overflow-hidden shadow-2xl transition-all duration-300 cursor-pointer group"
+            key={article.url || article.id || index}
+            className="glass-strong rounded-xl overflow-hidden shadow-2xl transition-all duration-300 cursor-pointer group hover:ring-2 hover:ring-f1red"
             whileHover={{ scale: 1.03, boxShadow: '0 10px 30px rgba(220, 0, 0, 0.4)' }}
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: index * 0.1 }}
-            onClick={() => article.url && window.open(article.url, '_blank')}
+            transition={{ duration: 0.5, delay: index * 0.05 }}
+            onClick={() => {
+              const url = article.url;
+              if (url && url !== '#') {
+                window.open(url, '_blank');
+              }
+            }}
           >
-            <div className="aspect-video w-full bg-gray-800 overflow-hidden relative">
+            <div className="aspect-video w-full bg-gradient-to-br from-f1dark to-f1gray overflow-hidden relative">
               <ImageWithFallback
-                src={article.urlToImage || `https://source.unsplash.com/800x450/?f1,racing,formula1`}
+                src={article.urlToImage || article.image || `/images/news-placeholder.png`}
                 alt={article.title}
                 className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
               />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
               <div className="absolute top-3 right-3">
-                <ExternalLink className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                <ExternalLink className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity bg-f1red/80 p-1 rounded-full" />
               </div>
+              {article.category && (
+                <div className="absolute top-3 left-3 bg-f1red/90 backdrop-blur-sm px-3 py-1 rounded-full">
+                  <span className="text-white text-xs font-bold">{article.category}</span>
+                </div>
+              )}
             </div>
             <div className="p-5">
               <div className="flex items-center gap-4 mb-3 flex-wrap">
                 <div className="flex items-center gap-1 text-f1red font-bold text-xs uppercase tracking-wider">
                   <Tag className="w-4 h-4" />
-                  <span>{article.source?.name || 'F1 News'}</span>
+                  <span>{article.source?.name || article.source || 'F1 News'}</span>
                 </div>
-                {article.publishedAt && (
+                {(article.publishedAt || article.date) && (
                   <div className="flex items-center gap-1 text-f1light/50 text-sm">
                     <Calendar className="w-4 h-4" />
-                    <span>{new Date(article.publishedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                    <span>
+                      {new Date(article.publishedAt || article.date).toLocaleDateString('en-US', { 
+                        month: 'short', 
+                        day: 'numeric', 
+                        year: 'numeric' 
+                      })}
+                    </span>
                   </div>
                 )}
               </div>
-              <h3 className="text-xl font-extrabold text-f1light mb-2 line-clamp-2">{article.title}</h3>
-              <p className="text-f1light/70 line-clamp-3 mb-4 text-sm">{article.description || 'Click to read the full article.'}</p>
+              <h3 className="text-xl font-extrabold text-f1light mb-2 line-clamp-2 group-hover:text-f1red transition-colors">
+                {article.title}
+              </h3>
+              <p className="text-f1light/70 line-clamp-3 mb-4 text-sm">
+                {article.description || article.summary || article.content || 'Click to read the full article.'}
+              </p>
+              {article.author && (
+                <p className="text-f1light/50 text-xs mb-3">By {article.author}</p>
+              )}
               <div className="text-f1red font-semibold flex items-center gap-1 group-hover:gap-2 transition-all">
                 Read More <ExternalLink className="w-4 h-4" />
               </div>

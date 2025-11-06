@@ -193,6 +193,43 @@ export async function fetchTeams(year) {
 }
 
 /**
+ * Fetch details for a single team/constructor
+ * @param {string} teamId - Team/constructor ID
+ * @param {number} year - Optional year parameter
+ * @returns {Promise<Object>} Object with team details
+ */
+export async function fetchTeamDetails(teamId, year) {
+  // Check cache first
+  const cached = apiCache.get('fetchTeamDetails', teamId, year);
+  if (cached) {
+    console.log('🔄 Using cached team details data');
+    return cached;
+  }
+
+  try {
+    const url = year
+      ? `${API_BASE_URL}/api/data/teams/${teamId}?year=${year}`
+      : `${API_BASE_URL}/api/data/teams/${teamId}`;
+
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    // Cache the successful response
+    apiCache.set('fetchTeamDetails', data, teamId, year);
+
+    return data;
+  } catch (error) {
+    console.error('API Team Details Fetch Error:', error);
+    return { team: null, error: error.message };
+  }
+}
+
+/**
  * Fetch race schedule from Ergast via backend
  * @param {number} year - Optional year parameter
  * @returns {Promise<Object>} Object with races array, next race, and metadata
@@ -433,6 +470,7 @@ export default {
   fetchConstructorStandings,
   fetchDrivers,
   fetchTeams,
+  fetchTeamDetails,
   fetchSchedule,
   fetchRaceResults,
   fetchNews,

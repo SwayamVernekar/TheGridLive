@@ -37,6 +37,8 @@ export function Navbar({ activeLink, onNavigate, theme, onThemeToggle }) {
     { name: 'Driver Standings', path: '/driver-standings' },
     { name: 'Constructor Standings', path: '/constructor-standings' },
     { name: 'News', path: '/news' },
+    { name: 'Chat', path: '/chat' },
+    { name: 'Profile', path: '/profile' },
   ];
 
   const handleLinkClick = (path) => {

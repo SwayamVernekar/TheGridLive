@@ -102,6 +102,11 @@ export function Teams({ onNavigate }) {
     if (!comparisonTeams || comparisonTeams.length !== 2) return null;
 
     const [team1, team2] = comparisonTeams;
+    
+    // Ensure team colors have # prefix
+    const team1Color = team1.teamColor?.startsWith('#') ? team1.teamColor : `#${team1.teamColor || 'DC0000'}`;
+    const team2Color = team2.teamColor?.startsWith('#') ? team2.teamColor : `#${team2.teamColor || 'DC0000'}`;
+    
     const stats = [
       { key: 'points', label: 'Points', icon: Award },
       { key: 'wins', label: 'Wins', icon: Trophy },
@@ -139,7 +144,7 @@ export function Teams({ onNavigate }) {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                {[team1, team2].map((team, index) => (
+                {[{ team: team1, color: team1Color }, { team: team2, color: team2Color }].map(({ team, color }, index) => (
                   <motion.div
                     key={team.id}
                     className="glass-light rounded-lg p-4"
@@ -156,7 +161,7 @@ export function Teams({ onNavigate }) {
                         <div className="flex items-center gap-2">
                           <div
                             className="w-3 h-3 rounded-full"
-                            style={{ backgroundColor: team.teamColor }}
+                            style={{ backgroundColor: color }}
                           />
                           <span className="text-f1light/60">#{index === 0 ? '1' : '2'}</span>
                         </div>
@@ -197,7 +202,7 @@ export function Teams({ onNavigate }) {
                         <div className="flex-1 bg-f1dark rounded-full h-3 overflow-hidden">
                           <motion.div
                             className="h-full rounded-full"
-                            style={{ backgroundColor: team1.teamColor }}
+                            style={{ backgroundColor: team1Color }}
                             initial={{ width: 0 }}
                             animate={{ width: `${(val1 / max) * 100}%` }}
                             transition={{ duration: 1, delay: 0.5 }}
@@ -206,7 +211,7 @@ export function Teams({ onNavigate }) {
                         <div className="flex-1 bg-f1dark rounded-full h-3 overflow-hidden">
                           <motion.div
                             className="h-full rounded-full"
-                            style={{ backgroundColor: team2.teamColor }}
+                            style={{ backgroundColor: team2Color }}
                             initial={{ width: 0 }}
                             animate={{ width: `${(val2 / max) * 100}%` }}
                             transition={{ duration: 1, delay: 0.5 }}
@@ -308,27 +313,28 @@ export function Teams({ onNavigate }) {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-6">
-        {teams.map((team, index) => (
+        {teams.map((team, index) => {
+          // Ensure team color has # prefix
+          const teamColor = team.teamColor?.startsWith('#') ? team.teamColor : `#${team.teamColor || 'DC0000'}`;
+          
+          return (
           <motion.div
             key={team.id}
             className="glass-strong rounded-xl overflow-hidden shadow-lg cursor-pointer relative"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: index * 0.1 }}
-
-            // Simplified 3D-like hover transformation for reliability
             whileHover={{ scale: 1.05, boxShadow: '0 20px 40px rgba(0,0,0,0.5)' }}
-
-            onHoverStart={() => setHoveredCard(team.id)}
-            onHoverEnd={() => setHoveredCard(null)}
+            onMouseEnter={() => setHoveredCard(team.id)}
+            onMouseLeave={() => setHoveredCard(null)}
             onClick={() => onNavigate?.(`/team/${team.id}`)}
           >
             {/* Team color accent top */}
             <div
               className="absolute top-0 left-0 right-0 h-1"
               style={{
-                background: `linear-gradient(90deg, transparent, ${team.teamColor || '#DC0000'}, transparent)`,
-                boxShadow: `0 0 10px ${team.teamColor || '#DC0000'}`,
+                background: `linear-gradient(90deg, transparent, ${teamColor}, transparent)`,
+                boxShadow: `0 0 10px ${teamColor}`,
               }}
             />
 
@@ -339,7 +345,7 @@ export function Teams({ onNavigate }) {
               animate={{ opacity: hoveredCard === team.id ? 1 : 0 }}
               transition={{ duration: 0.3 }}
               style={{
-                boxShadow: `0 0 30px ${team.teamColor || '#DC0000'}`,
+                boxShadow: `0 0 30px ${teamColor}`,
               }}
             />
 
@@ -387,7 +393,7 @@ export function Teams({ onNavigate }) {
                 <div
                   className="absolute inset-0"
                   style={{
-                    background: `linear-gradient(135deg, ${team.teamColor || '#DC0000'}20, ${team.teamColor || '#DC0000'}40)`,
+                    background: `linear-gradient(135deg, ${teamColor}20, ${teamColor}40)`,
                   }}
                 />
                 <motion.div
@@ -418,9 +424,9 @@ export function Teams({ onNavigate }) {
               <div className="flex items-center justify-center gap-2 mb-6">
                 <motion.div
                   className="w-4 h-4 rounded"
-                  style={{ backgroundColor: team.teamColor || '#DC0000' }}
+                  style={{ backgroundColor: teamColor }}
                   animate={{
-                    boxShadow: hoveredCard === team.id ? `0 0 15px ${team.teamColor || '#DC0000'}` : 'none',
+                    boxShadow: hoveredCard === team.id ? `0 0 15px ${teamColor}` : 'none',
                   }}
                   transition={{ duration: 0.3 }}
                 />
@@ -442,7 +448,7 @@ export function Teams({ onNavigate }) {
                     <motion.div
                       className="h-full rounded-full"
                       style={{
-                        background: `linear-gradient(90deg, ${team.teamColor || '#DC0000'}, #DC0000)`,
+                        background: `linear-gradient(90deg, ${teamColor}, #DC0000)`,
                       }}
                       initial={{ width: '0%' }}
                       animate={{ width: `${((team.points || 0) / maxPoints) * 100}%` }}
@@ -464,7 +470,7 @@ export function Teams({ onNavigate }) {
                     <motion.div
                       className="h-full rounded-full"
                       style={{
-                        background: `linear-gradient(90deg, ${team.teamColor || '#DC0000'}, #00D2BE)`,
+                        background: `linear-gradient(90deg, ${teamColor}, #00D2BE)`,
                       }}
                       initial={{ width: '0%' }}
                       animate={{ width: `${((team.wins || 0) / maxWins) * 100}%` }}
@@ -508,7 +514,7 @@ export function Teams({ onNavigate }) {
               </motion.button>
             </div>
           </motion.div>
-        ))}
+        );})}
       </div>
     </div>
   );

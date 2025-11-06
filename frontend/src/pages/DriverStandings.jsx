@@ -180,13 +180,13 @@ export function DriverStandings() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <img src={driver.driverImage} alt={driver.fullName} className="w-10 h-10 rounded-full object-cover" />
+                        <img src={driver.driverImage || ''} alt={driver.fullName || 'Driver'} className="w-10 h-10 rounded-full object-cover" />
                         <div>
                           <div className="text-f1light font-bold flex items-center gap-2">
-                            {driver.fullName}
+                            {driver.fullName || 'Unknown Driver'}
                             <span className="text-lg">{getNationalityFlag(driver.nationality)}</span>
                           </div>
-                          <div className="text-f1light/60 text-sm uppercase">{driver.driverCode || driver.nationality}</div>
+                          <div className="text-f1light/60 text-sm uppercase">{driver.driverCode || driver.nationality || 'N/A'}</div>
                         </div>
                       </div>
                     </td>
@@ -194,9 +194,9 @@ export function DriverStandings() {
                       <div className="flex items-center gap-2">
                         <div
                           className="w-1 h-8 rounded"
-                          style={{ backgroundColor: `#${driver.teamColor}` }}
+                          style={{ backgroundColor: `#${driver.teamColor || 'FFFFFF'}` }}
                         />
-                        <span className="text-f1light/80">{driver.constructorName}</span>
+                        <span className="text-f1light/80">{driver.constructorName || 'Unknown Team'}</span>
                       </div>
                     </td>
                     <td className="px-6 py-4 text-right">
@@ -236,13 +236,13 @@ export function DriverStandings() {
             <div>
               <div className="text-f1light/80 text-sm uppercase mb-1">{season} Championship Leader</div>
               <div className="text-3xl font-bold text-f1light">
-                {leader.fullName}
+                {leader.fullName || 'Unknown Driver'}
               </div>
-              <div className="text-f1light/90 mt-1">{leader.constructorName}</div>
+              <div className="text-f1light/90 mt-1">{leader.constructorName || 'Unknown Team'}</div>
             </div>
             <div className="text-right">
               <Trophy className="w-16 h-16 text-f1light mb-2 mx-auto" />
-              <div className="text-2xl font-bold text-f1light">{leader.points} pts</div>
+              <div className="text-2xl font-bold text-f1light">{leader.points || 0} pts</div>
             </div>
           </div>
         </div>

@@ -31,6 +31,10 @@ export function Register({ onNavigate, onRegister }) {
               // All lights turn red, then turn off
               setIsLightsOut(true); 
               setTimeout(() => {
+                // Save registration data to localStorage for profile sync
+                localStorage.setItem('userEmail', formData.email);
+                localStorage.setItem('chatUsername', formData.name);
+                
                 // Simulate registration completion and navigation
                 if (typeof onRegister === 'function') onRegister(formData);
                 if (typeof onNavigate === 'function') onNavigate('/');

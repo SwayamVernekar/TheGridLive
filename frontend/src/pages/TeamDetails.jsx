@@ -1,54 +1,11 @@
-import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion'; // Using 'framer-motion' for 'motion'
-import { ArrowLeft, Trophy, MapPin, User, Cog, Calendar, Users } from 'lucide-react';
-// Assuming ImageWithFallback is defined elsewhere and works as intended
-// import { ImageWithFallback } from '../components/figma/ImageWithFallback';
-
-// --- MOCK DATA/COMPONENTS (Interfaces removed) ---
-// The data shape is now inferred by JavaScript based on the constant arrays.
-
-const drivers = [
-  { id: 1, name: "Max Verstappen", number: 1, nationality: "Dutch", points: 450, wins: 14, championships: 3 },
-  { id: 2, name: "Sergio Perez", number: 11, nationality: "Mexican", points: 280, wins: 2, championships: 0 },
-  { id: 3, name: "Lewis Hamilton", number: 44, nationality: "British", points: 250, wins: 0, championships: 7 },
-  { id: 4, name: "George Russell", number: 63, nationality: "British", points: 220, wins: 0, championships: 0 },
-  { id: 5, name: "Charles Leclerc", number: 16, nationality: "Monegasque", points: 200, wins: 1, championships: 0 },
-];
-
-const teams = [
-  { 
-    id: "RBR", 
-    name: "Red Bull Racing", 
-    color: "#0600EF", 
-    base: "Milton Keynes, UK", 
-    championships: 6, 
-    technicalDirector: "Adrian Newey", 
-    drivers: [1, 2] 
-  },
-  { 
-    id: "MER", 
-    name: "Mercedes AMG F1", 
-    color: "#00D2BE", 
-    base: "Brackley, UK", 
-    championships: 8, 
-    technicalDirector: "Mike Elliott", 
-    drivers: [3, 4] 
-  },
-  { 
-    id: "FER", 
-    name: "Scuderia Ferrari", 
-    color: "#DC0000", 
-    base: "Maranello, Italy", 
-    championships: 16, 
-    technicalDirector: "Enrico Cardile", 
-    drivers: [5] 
-  },
-];
+import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ArrowLeft, Trophy, MapPin, User, Cog, Calendar, Users, Loader2 } from 'lucide-react';
+import { fetchTeamDetails } from '../api/f1Api';
 
 const ImageWithFallback = ({ src, alt, className }) => (
   <img src={src} alt={alt} className={className} loading="lazy" />
 );
-// -------------------------------------------------------------------
 
 // Intel Card Component 
 function IntelCard({ icon: Icon, label, value, color, delay }) {
@@ -77,19 +34,61 @@ function IntelCard({ icon: Icon, label, value, color, delay }) {
   );
 }
 
-
 export function TeamDetails({ teamId, onNavigate }) {
   const [selectedCarYear, setSelectedCarYear] = useState(2025);
-  // Default to Red Bull if no ID is provided or found for demonstration
-  const team = teams.find(t => t.id === teamId) || teams[0]; 
+  const [team, setTeam] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  if (!team) {
+  useEffect(() => {
+    const loadTeamDetails = async () => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const response = await fetchTeamDetails(teamId);
+
+        if (response.error) {
+          throw new Error(response.error);
+        }
+
+        if (!response.team) {
+          throw new Error('Team not found');
+        }
+
+        setTeam(response.team);
+      } catch (err) {
+        console.error('Error loading team details:', err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (teamId) {
+      loadTeamDetails();
+    }
+  }, [teamId]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 text-f1red animate-spin mx-auto mb-4" />
+          <p className="text-f1light/60">Loading team details...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !team) {
     return (
       <div className="text-center py-20">
         <h1 className="text-3xl font-bold text-f1light mb-4">Team Not Found</h1>
+        <p className="text-f1light/60 mb-6">{error || 'Unable to load team details'}</p>
         <button
           onClick={() => onNavigate('/teams')}
-          className="bg-f1red text-f1light py-2 px-6 rounded-lg"
+          className="bg-f1red text-f1light py-2 px-6 rounded-lg hover:bg-f1red/80 transition-colors"
         >
           Back to Teams
         </button>
@@ -97,8 +96,7 @@ export function TeamDetails({ teamId, onNavigate }) {
     );
   }
 
-  // Cast drivers array implicitly to any type in JS
-  const teamDrivers = drivers.filter(d => team.drivers.includes(d.id));
+  const teamDrivers = team.drivers || [];
   const carYears = [2021, 2022, 2023, 2024, 2025];
 
   return (
@@ -132,26 +130,27 @@ export function TeamDetails({ teamId, onNavigate }) {
           <div
             className="absolute inset-0"
             style={{
-              // Color overlay for branding
-              background: `linear-gradient(to right, ${team.color}E6, ${team.color}80, transparent)`,
+              background: `linear-gradient(to right, #${team.teamColor}E6, #${team.teamColor}80, transparent)`,
             }}
           />
         </div>
 
         <div className="relative z-10 p-8 md:p-12">
-          {/* Team Logo Placeholder */}
-          <motion.div
-            className="w-24 h-24 rounded-full flex items-center justify-center mb-4 backdrop-blur-md"
-            style={{
-              backgroundColor: `${team.color}40`,
-              border: `2px solid ${team.color}`,
-            }}
-            initial={{ scale: 0, rotate: -360 }}
-            animate={{ scale: 1, rotate: 0 }}
-            transition={{ type: 'spring', stiffness: 100 }}
-          >
-            <Users className="w-10 h-10 text-f1light" />
-          </motion.div>
+          {/* Team Logo */}
+          {team.teamLogo && (
+            <motion.div
+              className="w-24 h-24 rounded-full flex items-center justify-center mb-4 backdrop-blur-md p-4"
+              style={{
+                backgroundColor: `#${team.teamColor}40`,
+                border: `2px solid #${team.teamColor}`,
+              }}
+              initial={{ scale: 0, rotate: -360 }}
+              animate={{ scale: 1, rotate: 0 }}
+              transition={{ type: 'spring', stiffness: 100 }}
+            >
+              <img src={team.teamLogo} alt={team.name} className="w-full h-full object-contain" />
+            </motion.div>
+          )}
 
           {/* Team Name */}
           <motion.h1
@@ -165,12 +164,12 @@ export function TeamDetails({ teamId, onNavigate }) {
 
           {/* Championships */}
           <motion.div
-            className="flex items-center gap-3"
+            className="flex items-center gap-3 mb-4"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3, duration: 0.5 }}
           >
-            <Trophy className="w-6 h-6" style={{ color: team.color }} />
+            <Trophy className="w-6 h-6" style={{ color: `#${team.teamColor}` }} />
             {/* Animated championship stars */}
             <motion.div
               className="flex gap-1"
@@ -178,7 +177,7 @@ export function TeamDetails({ teamId, onNavigate }) {
               animate={{ scale: 1 }}
               transition={{ delay: 0.4, staggerChildren: 0.1 }}
             >
-              {[...Array(Math.min(team.championships, 8))].map((_, i) => (
+              {[...Array(Math.min(team.championships || 0, 8))].map((_, i) => (
                 <motion.div
                   key={i}
                   className="w-8 h-8 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center shadow-lg"
@@ -191,8 +190,33 @@ export function TeamDetails({ teamId, onNavigate }) {
               ))}
             </motion.div>
             <span className="text-f1light/80 text-lg ml-2">
-              {team.championships} Constructor Championships
+              {team.championships || 0} Constructor Championships
             </span>
+          </motion.div>
+
+          {/* Current Season Stats */}
+          <motion.div
+            className="flex flex-wrap gap-4 text-f1light/80"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4, duration: 0.5 }}
+          >
+            <div className="flex items-center gap-2">
+              <Trophy className="w-5 h-5 text-f1red" />
+              <span>Position: #{team.position}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span>•</span>
+              <span>Points: {team.points}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span>•</span>
+              <span>Wins: {team.wins}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span>•</span>
+              <span>Podiums: {team.podiums || 0}</span>
+            </div>
           </motion.div>
 
           {/* Quick Stats */}
@@ -206,21 +230,21 @@ export function TeamDetails({ teamId, onNavigate }) {
               icon={MapPin}
               label="Team Base"
               value={team.base}
-              color={team.color}
+              color={`#${team.teamColor}`}
               delay={0.5}
             />
             <IntelCard
               icon={User}
               label="Technical Director"
               value={team.technicalDirector}
-              color={team.color}
+              color={`#${team.teamColor}`}
               delay={0.6}
             />
             <IntelCard
-              icon={Cog}
+              icon={Calendar}
               label="First Entry"
-              value="1954" // Mocked year
-              color={team.color}
+              value={team.firstEntry}
+              color={`#${team.teamColor}`}
               delay={0.7}
             />
           </motion.div>
@@ -242,12 +266,12 @@ export function TeamDetails({ teamId, onNavigate }) {
               onClick={() => setSelectedCarYear(year)}
               className={`px-6 py-2 rounded-lg font-bold transition-all ${
                 selectedCarYear === year
-                  ? 'text-black' // Black text for contrasting team color background
+                  ? 'text-black'
                   : 'glass-light text-f1light/60 hover:text-f1light'
               }`}
               style={{
-                backgroundColor: selectedCarYear === year ? team.color : 'transparent',
-                boxShadow: selectedCarYear === year ? `0 0 10px ${team.color}80` : 'none',
+                backgroundColor: selectedCarYear === year ? `#${team.teamColor}` : 'transparent',
+                boxShadow: selectedCarYear === year ? `0 0 10px #${team.teamColor}80` : 'none',
               }}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
@@ -263,7 +287,7 @@ export function TeamDetails({ teamId, onNavigate }) {
             key={selectedCarYear}
             className="relative aspect-video rounded-lg overflow-hidden"
             style={{
-              background: `linear-gradient(135deg, ${team.color}20, ${team.color}40)`,
+              background: `linear-gradient(135deg, #${team.teamColor}20, #${team.teamColor}40)`,
             }}
             initial={{ opacity: 0, x: -50, rotateY: 90 }}
             animate={{ opacity: 1, x: 0, rotateY: 0 }}
@@ -277,7 +301,7 @@ export function TeamDetails({ teamId, onNavigate }) {
                 transition={{ type: 'spring', stiffness: 50 }}
               >
                 <ImageWithFallback
-                  src={`https://source.unsplash.com/1000x500/?f1car,modern,${team.id + selectedCarYear}`}
+                  src={team.carImage || `https://source.unsplash.com/1000x500/?f1car,modern,${team.id + selectedCarYear}`}
                   alt={`${team.name} ${selectedCarYear} Car`}
                   className="max-h-96 object-contain drop-shadow-2xl"
                 />
@@ -334,7 +358,7 @@ export function TeamDetails({ teamId, onNavigate }) {
                 <motion.div
                   className="absolute inset-0 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
                   style={{
-                    boxShadow: `0 0 30px ${team.color}`,
+                    boxShadow: `0 0 30px #${team.teamColor}`,
                   }}
                 />
 
@@ -342,11 +366,11 @@ export function TeamDetails({ teamId, onNavigate }) {
                   {/* Driver Photo */}
                   <div
                     className="w-24 h-24 rounded-full overflow-hidden ring-4 flex-shrink-0"
-                    style={{ borderColor: team.color }}
+                    style={{ borderColor: `#${team.teamColor}` }}
                   >
                     <ImageWithFallback
-                      src={`https://source.unsplash.com/400x400/?f1driver,helmet,portrait,${driver.number}`}
-                      alt={driver.name}
+                      src={driver.driverImage || `https://source.unsplash.com/400x400/?f1driver,helmet,portrait,${driver.number}`}
+                      alt={driver.fullName}
                       className="w-full h-full object-cover"
                     />
                   </div>
@@ -355,11 +379,11 @@ export function TeamDetails({ teamId, onNavigate }) {
                   <div className="flex-1">
                     <div
                       className="inline-block px-3 py-1 rounded-full text-xs font-bold text-f1light mb-2"
-                      style={{ backgroundColor: team.color }}
+                      style={{ backgroundColor: `#${team.teamColor}` }}
                     >
                       #{driver.number}
                     </div>
-                    <h3 className="text-2xl font-bold text-f1light mb-1">{driver.name}</h3>
+                    <h3 className="text-2xl font-bold text-f1light mb-1">{driver.fullName}</h3>
                     <div className="text-f1light/60 text-sm mb-3">{driver.nationality}</div>
                     
                     {/* Quick Stats */}
@@ -372,10 +396,10 @@ export function TeamDetails({ teamId, onNavigate }) {
                         <div className="text-f1light/60">Wins</div>
                         <div className="text-f1red font-bold">{driver.wins}</div>
                       </div>
-                      {driver.championships > 0 && (
+                      {driver.podiums > 0 && (
                         <div>
-                          <div className="text-f1light/60">Championships</div>
-                          <div className="text-f1red font-bold">{driver.championships}</div>
+                          <div className="text-f1light/60">Podiums</div>
+                          <div className="text-f1red font-bold">{driver.podiums}</div>
                         </div>
                       )}
                     </div>

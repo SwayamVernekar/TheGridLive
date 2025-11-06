@@ -1,0 +1,4 @@
+PLACEHOLDER: Replace this file with the McLaren MCL39 2025 car image
+Recommended size: 800x400px (2:1 aspect ratio)
+Format: PNG with transparent background preferred
+Source: Official McLaren F1 Team media or press kit

@@ -25,6 +25,9 @@ import { Contact } from './pages/Contact';
 import { Privacy } from './pages/Privacy';
 import { Terms } from './pages/Terms';
 import { Schedule } from './pages/Schedule';
+import { RaceTelemetry } from './pages/RaceTelemetry';
+import { Chat } from './pages/Chat';
+import { Profile } from './pages/Profile';
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState('/');
@@ -105,13 +108,20 @@ export default function App() {
     }
 
     if (currentPage.startsWith('/driver/')) {
-      const driverId = parseInt(currentPage.split('/driver/')[1]);
+      const driverId = currentPage.split('/driver/')[1]; // Keep as string, don't parse to int
       return <DriverDetails driverId={driverId} onNavigate={setCurrentPage} />;
     }
 
     if (currentPage.startsWith('/team/')) {
-      const teamId = parseInt(currentPage.split('/team/')[1]);
+      const teamId = currentPage.split('/team/')[1]; // Keep as string for consistency
       return <TeamDetails teamId={teamId} onNavigate={setCurrentPage} />;
+    }
+
+    if (currentPage.startsWith('/race-telemetry/')) {
+      const parts = currentPage.split('/');
+      const season = parts[2];
+      const round = parts[3];
+      return <RaceTelemetry season={season} round={round} onNavigate={setCurrentPage} />;
     }
 
     switch (currentPage) {
@@ -137,7 +147,10 @@ export default function App() {
         return <Consistency />;
       case '/race-pace':
         return <RacePace />;
-
+      case '/chat':
+        return <Chat />;
+      case '/profile':
+        return <Profile onNavigate={setCurrentPage} />;
       case '/about':
         return <About />;
       case '/contact':

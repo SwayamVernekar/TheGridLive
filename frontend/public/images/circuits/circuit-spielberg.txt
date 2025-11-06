@@ -1,0 +1,5 @@
+PLACEHOLDER: Replace with Red Bull Ring image
+Circuit: Red Bull Ring, Spielberg, Austria
+Recommended size: 1200x600px
+Format: PNG or JPG
+Include: Mountain backdrop and compact layout

@@ -96,6 +96,8 @@ export function ConstructorStandings() {
                 <th className="px-6 py-4 text-left text-f1light">Position</th>
                 <th className="px-6 py-4 text-left text-f1light">Team</th>
                 <th className="px-6 py-4 text-right text-f1light">Points</th>
+                <th className="px-6 py-4 text-right text-f1light">Wins</th>
+                <th className="px-6 py-4 text-right text-f1light">Podiums</th>
                 <th className="px-6 py-4 text-right text-f1light">Gap to Leader</th>
               </tr>
             </thead>
@@ -105,7 +107,7 @@ export function ConstructorStandings() {
 
                 return (
                   <tr
-                    key={team.team || index}
+                    key={team.constructorId || team.name || index}
                     className="border-b border-f1light/10 hover:bg-f1red/10 transition-colors"
                   >
                     {/* Position */}
@@ -156,6 +158,16 @@ export function ConstructorStandings() {
                       <span className="text-f1red font-bold text-lg">{team.points || 0}</span>
                     </td>
 
+                    {/* Wins */}
+                    <td className="px-6 py-4 text-right">
+                      <span className="text-f1light font-semibold">{team.wins || 0}</span>
+                    </td>
+
+                    {/* Podiums */}
+                    <td className="px-6 py-4 text-right">
+                      <span className="text-f1light font-semibold">{team.podiums || 0}</span>
+                    </td>
+
                     {/* Gap to Leader */}
                     <td className="px-6 py-4 text-right">
                       <span className="text-f1light/60">
@@ -180,7 +192,7 @@ export function ConstructorStandings() {
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
               data={standings.slice(0, 10).map(team => ({
-                name: team.name?.split(' ').pop() || team.team || 'Team',
+                name: team.name?.split(' ').pop() || 'Team',
                 points: team.points || 0,
                 color: `#${team.teamColor || 'DC0000'}`
               }))}
@@ -226,12 +238,26 @@ export function ConstructorStandings() {
           <div className="flex items-center justify-between">
             <div>
               <div className="text-f1light/80 text-sm uppercase mb-1">{season} Constructor Champion</div>
-              <div className="text-3xl font-bold text-f1light">{leader.team}</div>
-              {leader.drivers && (
+              <div className="text-3xl font-bold text-f1light">{leader.name}</div>
+              {leader.drivers && leader.drivers.length > 0 && (
                 <div className="text-f1light/90 mt-1">
                   Drivers: {leader.drivers.map(d => d.fullName || d.name).join(' & ')}
                 </div>
               )}
+              <div className="flex gap-4 mt-3 text-f1light/80 text-sm">
+                {leader.wins > 0 && (
+                  <div>
+                    <Trophy className="w-4 h-4 inline mr-1" />
+                    {leader.wins} {leader.wins === 1 ? 'Win' : 'Wins'}
+                  </div>
+                )}
+                {leader.podiums > 0 && (
+                  <div>
+                    <Award className="w-4 h-4 inline mr-1" />
+                    {leader.podiums} {leader.podiums === 1 ? 'Podium' : 'Podiums'}
+                  </div>
+                )}
+              </div>
             </div>
             <div className="text-right">
               <Trophy className="w-16 h-16 text-f1light mb-2 mx-auto" />

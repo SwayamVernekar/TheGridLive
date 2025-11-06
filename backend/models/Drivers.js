@@ -17,6 +17,7 @@ const DriversSchema = new mongoose.Schema({
     teamColor: { type: String, required: true },
     points: { type: Number, default: 0 },
     wins: { type: Number, default: 0 },
+    podiums: { type: Number, default: 0 },
     position: { type: Number },
     driverImage: { type: String }
   }],

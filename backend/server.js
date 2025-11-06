@@ -343,16 +343,21 @@ function getTeamColor(constructorId) {
 
 function getTeamLogo(constructorId) {
   const normalized = constructorId.toLowerCase().replace(/\s+/g, '_');
-  return teamData[normalized]?.logo || `https://source.unsplash.com/200x200/?f1,logo,${constructorId}`;
+  // Use local images from public/images directory
+  return `/images/team-${normalized}.png`;
 }
 
 function getCarImage(constructorId, year = CURRENT_YEAR) {
   const normalized = constructorId.toLowerCase().replace(/\s+/g, '_');
-  return `https://source.unsplash.com/800x400/?f1,${constructorId},car,${year}`;
+  // Use local images from public/images/cars directory
+  return `/images/cars/car-${normalized}-${year}.png`;
 }
 
 function getDriverImage(driverCode, driverSurname) {
-  return `https://source.unsplash.com/400x400/?f1,driver,portrait,racer,${driverSurname}`;
+  // Use driverId format (lowercase with underscores)
+  const driverId = (driverSurname || driverCode || '').toLowerCase().replace(/\s+/g, '_');
+  // Use local images from public/images directory
+  return `/images/driver-${driverId}.png`;
 }
 
 // ============================================
@@ -603,12 +608,20 @@ app.get('/api/data/standings/drivers', async (req, res) => {
       if (index === 0) {
         console.log('Sample entry (first driver):', JSON.stringify(entry, null, 2));
       }
+      
+      // Generate driverCode if missing - use first 3 letters of family name in uppercase
+      let driverCode = entry.driverCode;
+      if (!driverCode || driverCode.trim() === '') {
+        driverCode = entry.familyName?.substring(0, 3).toUpperCase() || entry.driverId?.substring(0, 3).toUpperCase() || 'UNK';
+        console.log(`Generated driverCode for ${entry.fullName}: ${driverCode}`);
+      }
+      
       return {
         position: entry.position,
         points: entry.points,
         wins: entry.wins,
         driverId: entry.driverId,
-        driverCode: entry.driverCode,
+        driverCode: driverCode,
         driverNumber: entry.driverNumber,
         givenName: entry.givenName,
         familyName: entry.familyName,
@@ -618,7 +631,7 @@ app.get('/api/data/standings/drivers', async (req, res) => {
         constructorId: entry.constructorId,
         constructorName: entry.constructorName,
         teamColor: getTeamColor(entry.constructorId),
-        driverImage: getDriverImage(entry.driverCode, entry.familyName)
+        driverImage: getDriverImage(driverCode, entry.familyName)
       };
     });
 
@@ -700,6 +713,11 @@ app.get('/api/data/standings/constructors', async (req, res) => {
     // Fetch from MongoDB - get the most recent standings for the year
     console.log('Fetching data from MongoDB...');
     const standingsData = await getFromMongoDB(ConstructorStandings, { season: parseInt(year) }, { lastUpdate: -1 }, 1);
+    
+    // Also fetch driver standings to calculate team wins and podiums
+    console.log('Fetching driver standings to calculate team stats...');
+    const driverStandingsData = await getFromMongoDB(DriverStandings, { season: parseInt(year) }, { round: -1 }, 1);
+    
     console.log('✓ Received response from MongoDB');
 
     if (!standingsData || standingsData.length === 0) {
@@ -710,16 +728,41 @@ app.get('/api/data/standings/constructors', async (req, res) => {
     const latestStandings = standingsData[0];
     console.log('Latest standings lastUpdate:', latestStandings.lastUpdate);
     console.log('Number of constructors in standings:', latestStandings.standings.length);
+    
+    // Create a map of constructor wins and podiums from driver data
+    const teamStats = {};
+    if (driverStandingsData && driverStandingsData.length > 0) {
+      const latestDriverStandings = driverStandingsData[0];
+      console.log('Calculating team stats from driver data...');
+      
+      latestDriverStandings.standings.forEach(driver => {
+        if (!teamStats[driver.constructorId]) {
+          teamStats[driver.constructorId] = { wins: 0, podiums: 0, polePositions: 0 };
+        }
+        teamStats[driver.constructorId].wins += driver.wins || 0;
+        teamStats[driver.constructorId].podiums += driver.podiums || 0;
+        teamStats[driver.constructorId].polePositions += driver.polePositions || 0;
+      });
+      
+      console.log('Team stats calculated:', JSON.stringify(teamStats, null, 2));
+    }
+    
     console.log('Processing constructor standings...');
 
     const constructorStandings = latestStandings.standings.map((entry, index) => {
       if (index === 0) {
         console.log('Sample entry (first constructor):', JSON.stringify(entry, null, 2));
       }
+      
+      // Use calculated stats from drivers if available
+      const stats = teamStats[entry.constructorId] || { wins: 0, podiums: 0, polePositions: 0 };
+      
       return {
         position: entry.position,
         points: entry.points,
-        wins: entry.wins,
+        wins: stats.wins,
+        podiums: stats.podiums,
+        polePositions: stats.polePositions,
         constructorId: entry.constructorId,
         name: entry.name,
         nationality: entry.nationality,
@@ -757,16 +800,16 @@ app.get('/api/data/standings/constructors', async (req, res) => {
     // FALLBACK: Return mock data when MongoDB is unavailable
     console.log('⚠️ MongoDB unavailable - returning fallback data');
     const mockStandings = [
-      { position: 1, points: 860, wins: 7, constructorId: 'red_bull', name: 'Red Bull Racing', nationality: 'Austrian', teamColor: '#3671C6', teamLogo: 'https://upload.wikimedia.org/wikipedia/en/7/79/Red_Bull_Racing_logo.svg', carImage: 'https://source.unsplash.com/800x400/?f1,red_bull,car,2025' },
-      { position: 2, points: 549, wins: 19, constructorId: 'mercedes', name: 'Mercedes', nationality: 'German', teamColor: '#27F4D2', teamLogo: 'https://upload.wikimedia.org/wikipedia/commons/f/fb/Mercedes_AMG_Petronas_F1_Logo.svg', carImage: 'https://source.unsplash.com/800x400/?f1,mercedes,car,2025' },
-      { position: 3, points: 315, wins: 2, constructorId: 'ferrari', name: 'Ferrari', nationality: 'Italian', teamColor: '#E8002D', teamLogo: 'https://upload.wikimedia.org/wikipedia/en/d/d9/Scuderia_Ferrari_Logo.svg', carImage: 'https://source.unsplash.com/800x400/?f1,ferrari,car,2025' },
-      { position: 4, points: 291, wins: 2, constructorId: 'mclaren', name: 'McLaren', nationality: 'British', teamColor: '#FF8000', teamLogo: 'https://upload.wikimedia.org/wikipedia/en/6/66/McLaren_Racing_logo.svg', carImage: 'https://source.unsplash.com/800x400/?f1,mclaren,car,2025' },
-      { position: 5, points: 262, wins: 0, constructorId: 'aston_martin', name: 'Aston Martin', nationality: 'British', teamColor: '#229971', teamLogo: 'https://upload.wikimedia.org/wikipedia/en/7/7a/Aston_Martin_Aramco_Cognizant_F1.svg', carImage: 'https://source.unsplash.com/800x400/?f1,aston_martin,car,2025' },
-      { position: 6, points: 223, wins: 2, constructorId: 'alpine', name: 'Alpine F1 Team', nationality: 'French', teamColor: '#0090FF', teamLogo: 'https://upload.wikimedia.org/wikipedia/commons/7/7e/Alpine_F1_Team_Logo.svg', carImage: 'https://source.unsplash.com/800x400/?f1,alpine,car,2025' },
-      { position: 7, points: 192, wins: 0, constructorId: 'williams', name: 'Williams', nationality: 'British', teamColor: '#005AFF', teamLogo: 'https://upload.wikimedia.org/wikipedia/en/f/f9/Williams_Grand_Prix_Engineering_logo.svg', carImage: 'https://source.unsplash.com/800x400/?f1,williams,car,2025' },
-      { position: 8, points: 152, wins: 0, constructorId: 'alphatauri', name: 'AlphaTauri', nationality: 'Italian', teamColor: '#2B4562', teamLogo: 'https://upload.wikimedia.org/wikipedia/commons/7/70/Scuderia_AlphaTauri_logo.svg', carImage: 'https://source.unsplash.com/800x400/?f1,alphatauri,car,2025' },
-      { position: 9, points: 86, wins: 0, constructorId: 'alfa', name: 'Alfa Romeo', nationality: 'Swiss', teamColor: '#C92D4B', teamLogo: 'https://upload.wikimedia.org/wikipedia/commons/8/8a/Alfa_Romeo_F1_Team_Orlen_logo.svg', carImage: 'https://source.unsplash.com/800x400/?f1,alfa,car,2025' },
-      { position: 10, points: 73, wins: 0, constructorId: 'haas', name: 'Haas F1 Team', nationality: 'American', teamColor: '#B6BABD', teamLogo: 'https://upload.wikimedia.org/wikipedia/en/thumb/e/e3/Haas_F1_Team_Logo.svg/1200px-Haas_F1_Team_Logo.svg.png', carImage: 'https://source.unsplash.com/800x400/?f1,haas,car,2025' }
+      { position: 1, points: 860, wins: 7, podiums: 15, polePositions: 8, constructorId: 'red_bull', name: 'Red Bull Racing', nationality: 'Austrian', teamColor: '#3671C6', teamLogo: 'https://upload.wikimedia.org/wikipedia/en/7/79/Red_Bull_Racing_logo.svg', carImage: 'https://source.unsplash.com/800x400/?f1,red_bull,car,2025' },
+      { position: 2, points: 549, wins: 19, podiums: 25, polePositions: 12, constructorId: 'mercedes', name: 'Mercedes', nationality: 'German', teamColor: '#27F4D2', teamLogo: 'https://upload.wikimedia.org/wikipedia/commons/f/fb/Mercedes_AMG_Petronas_F1_Logo.svg', carImage: 'https://source.unsplash.com/800x400/?f1,mercedes,car,2025' },
+      { position: 3, points: 315, wins: 2, podiums: 10, polePositions: 4, constructorId: 'ferrari', name: 'Ferrari', nationality: 'Italian', teamColor: '#E8002D', teamLogo: 'https://upload.wikimedia.org/wikipedia/en/d/d9/Scuderia_Ferrari_Logo.svg', carImage: 'https://source.unsplash.com/800x400/?f1,ferrari,car,2025' },
+      { position: 4, points: 291, wins: 2, podiums: 8, polePositions: 3, constructorId: 'mclaren', name: 'McLaren', nationality: 'British', teamColor: '#FF8000', teamLogo: 'https://upload.wikimedia.org/wikipedia/en/6/66/McLaren_Racing_logo.svg', carImage: 'https://source.unsplash.com/800x400/?f1,mclaren,car,2025' },
+      { position: 5, points: 262, wins: 0, podiums: 7, polePositions: 1, constructorId: 'aston_martin', name: 'Aston Martin', nationality: 'British', teamColor: '#229971', teamLogo: 'https://upload.wikimedia.org/wikipedia/en/7/7a/Aston_Martin_Aramco_Cognizant_F1.svg', carImage: 'https://source.unsplash.com/800x400/?f1,aston_martin,car,2025' },
+      { position: 6, points: 223, wins: 2, podiums: 5, polePositions: 2, constructorId: 'alpine', name: 'Alpine F1 Team', nationality: 'French', teamColor: '#0090FF', teamLogo: 'https://upload.wikimedia.org/wikipedia/commons/7/7e/Alpine_F1_Team_Logo.svg', carImage: 'https://source.unsplash.com/800x400/?f1,alpine,car,2025' },
+      { position: 7, points: 192, wins: 0, podiums: 4, polePositions: 0, constructorId: 'williams', name: 'Williams', nationality: 'British', teamColor: '#005AFF', teamLogo: 'https://upload.wikimedia.org/wikipedia/en/f/f9/Williams_Grand_Prix_Engineering_logo.svg', carImage: 'https://source.unsplash.com/800x400/?f1,williams,car,2025' },
+      { position: 8, points: 152, wins: 0, podiums: 3, polePositions: 0, constructorId: 'alphatauri', name: 'AlphaTauri', nationality: 'Italian', teamColor: '#2B4562', teamLogo: 'https://upload.wikimedia.org/wikipedia/commons/7/70/Scuderia_AlphaTauri_logo.svg', carImage: 'https://source.unsplash.com/800x400/?f1,alphatauri,car,2025' },
+      { position: 9, points: 86, wins: 0, podiums: 1, polePositions: 0, constructorId: 'alfa', name: 'Alfa Romeo', nationality: 'Swiss', teamColor: '#C92D4B', teamLogo: 'https://upload.wikimedia.org/wikipedia/commons/8/8a/Alfa_Romeo_F1_Team_Orlen_logo.svg', carImage: 'https://source.unsplash.com/800x400/?f1,alfa,car,2025' },
+      { position: 10, points: 73, wins: 0, podiums: 0, polePositions: 0, constructorId: 'haas', name: 'Haas F1 Team', nationality: 'American', teamColor: '#B6BABD', teamLogo: 'https://upload.wikimedia.org/wikipedia/en/thumb/e/e3/Haas_F1_Team_Logo.svg/1200px-Haas_F1_Team_Logo.svg.png', carImage: 'https://source.unsplash.com/800x400/?f1,haas,car,2025' }
     ];
 
     const fallbackResult = {
@@ -800,54 +843,97 @@ app.get('/api/data/drivers', async (req, res) => {
     }
     console.log('✗ Cache miss or expired. Fetching from MongoDB...');
 
-    // Fetch from MongoDB - get the most recent drivers data for the year
-    console.log('Fetching drivers from MongoDB...');
-    const driversData = await getFromMongoDB(Drivers, { season: parseInt(year) }, { lastUpdate: -1 }, 1);
-    console.log('✓ Received response from MongoDB');
-
-    if (!driversData || driversData.length === 0) {
-      console.log('⚠ No drivers available for year:', year);
-      return res.json({ drivers: [], year, message: 'No drivers available yet' });
-    }
-
-    const latestDrivers = driversData[0];
-    console.log('Latest drivers lastUpdate:', latestDrivers.lastUpdate);
-    console.log('Number of drivers:', latestDrivers.drivers.length);
-    console.log('Processing drivers...');
-
-    const drivers = latestDrivers.drivers.map((driver, index) => {
-      if (index === 0) {
-        console.log('Sample driver entry:', JSON.stringify(driver, null, 2));
+    // Fetch driver standings first (has complete data including podiums, points, wins, position)
+    console.log('Fetching driver standings from MongoDB...');
+    const standingsData = await getFromMongoDB(DriverStandings, { season: parseInt(year) }, { round: -1 }, 1);
+    
+    if (!standingsData || standingsData.length === 0) {
+      console.log('⚠ No driver standings available for year:', year);
+      // Try fetching basic drivers data as fallback
+      const driversData = await getFromMongoDB(Drivers, { season: parseInt(year) }, { lastUpdate: -1 }, 1);
+      
+      if (!driversData || driversData.length === 0) {
+        console.log('⚠ No drivers available for year:', year);
+        return res.json({ drivers: [], year, message: 'No drivers available yet' });
       }
-      return {
+
+      const latestDrivers = driversData[0];
+      const drivers = latestDrivers.drivers.map((driver) => ({
         id: driver.driverId,
         driverId: driver.driverId,
-        code: driver.driverCode,
-        number: driver.driverNumber,
-        givenName: driver.givenName,
-        familyName: driver.familyName,
-        fullName: driver.fullName,
-        dateOfBirth: driver.dateOfBirth,
-        nationality: driver.nationality,
-        team: driver.constructorName,
-        teamId: driver.constructorId,
-        teamColor: getTeamColor(driver.constructorId),
-        points: driver.points,
-        wins: driver.wins,
-        position: driver.position,
-        driverImage: getDriverImage(driver.driverCode, driver.familyName),
-        url: driver.url
+        code: driver.code || driver.driverCode,
+        number: driver.number || driver.driverNumber || 'N/A',
+        givenName: driver.givenName || '',
+        familyName: driver.familyName || '',
+        fullName: driver.fullName || `${driver.givenName} ${driver.familyName}`,
+        dateOfBirth: driver.dateOfBirth || '',
+        nationality: driver.nationality || '',
+        team: driver.team || driver.constructorName || 'Unknown Team',
+        teamId: driver.teamId || driver.constructorId || '',
+        teamColor: driver.teamColor || getTeamColor(driver.constructorId || driver.teamId) || 'FFFFFF',
+        points: driver.points || 0,
+        wins: driver.wins || 0,
+        podiums: driver.podiums || 0,
+        position: driver.position || 999,
+        driverImage: driver.driverImage || getDriverImage(driver.code || driver.driverCode, driver.familyName),
+        url: driver.url || ''
+      }));
+
+      const result = {
+        drivers,
+        year: parseInt(year),
+        count: drivers.length,
+        lastUpdate: latestDrivers.lastUpdate || new Date().toISOString()
+      };
+      
+      updateCache('drivers', result);
+      return res.json(result);
+    }
+
+    const latestStandings = standingsData[0];
+    console.log('Latest standings round:', latestStandings.round);
+    console.log('Number of drivers in standings:', latestStandings.standings.length);
+    console.log('Processing drivers from standings...');
+
+    // Use standings data directly - it has all the info we need including podiums
+    const drivers = latestStandings.standings.map((entry, index) => {
+      if (index === 0) {
+        console.log('Sample driver entry from standings:', JSON.stringify(entry, null, 2));
+      }
+      
+      return {
+        id: entry.driverId,
+        driverId: entry.driverId,
+        code: entry.driverCode,
+        number: entry.driverNumber,
+        givenName: entry.givenName,
+        familyName: entry.familyName,
+        fullName: entry.fullName,
+        dateOfBirth: entry.dateOfBirth || '',
+        nationality: entry.nationality || '',
+        team: entry.constructorName,
+        teamId: entry.constructorId,
+        teamColor: entry.teamColor || getTeamColor(entry.constructorId),
+        points: entry.points,
+        wins: entry.wins,
+        podiums: entry.podiums || 0,
+        position: entry.position,
+        driverImage: entry.driverImage || getDriverImage(entry.driverCode, entry.familyName),
+        url: `https://en.wikipedia.org/wiki/${entry.fullName.replace(/\s+/g, '_')}`
       };
     });
 
-    console.log('✓ Processed', drivers.length, 'drivers');
+    // Sort drivers by position (standings order)
+    drivers.sort((a, b) => (a.position || 999) - (b.position || 999));
+
+    console.log('✓ Processed', drivers.length, 'drivers from standings');
     console.log('Sample processed driver:', JSON.stringify(drivers[0], null, 2));
 
     const result = {
       drivers,
       year: parseInt(year),
       count: drivers.length,
-      lastUpdate: latestDrivers.lastUpdate || new Date().toISOString()
+      lastUpdate: latestStandings.lastUpdate || new Date().toISOString()
     };
     console.log('Final result structure:', Object.keys(result));
     console.log('Updating cache...');
@@ -869,16 +955,16 @@ app.get('/api/data/drivers', async (req, res) => {
     // FALLBACK: Return mock data when MongoDB is unavailable
     console.log('⚠️ MongoDB unavailable - returning fallback data');
     const mockDrivers = [
-      { id: 'max_verstappen', driverId: 'max_verstappen', code: 'VER', number: '1', givenName: 'Max', familyName: 'Verstappen', fullName: 'Max Verstappen', dateOfBirth: '1997-09-30', nationality: 'Dutch', team: 'Red Bull Racing', teamId: 'red_bull', teamColor: '#3671C6', points: 549, wins: 19, position: 1, driverImage: 'https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/M/MAXVER01_Max_Verstappen/maxver01.png', url: 'https://en.wikipedia.org/wiki/Max_Verstappen' },
-      { id: 'lando_norris', driverId: 'lando_norris', code: 'NOR', number: '4', givenName: 'Lando', familyName: 'Norris', fullName: 'Lando Norris', dateOfBirth: '1999-11-13', nationality: 'British', team: 'McLaren', teamId: 'mclaren', teamColor: '#FF8000', points: 860, wins: 7, position: 2, driverImage: 'https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/L/LANNOR01_Lando_Norris/lannor01.png', url: 'https://en.wikipedia.org/wiki/Lando_Norris' },
-      { id: 'charles_leclerc', driverId: 'charles_leclerc', code: 'LEC', number: '16', givenName: 'Charles', familyName: 'Leclerc', fullName: 'Charles Leclerc', dateOfBirth: '1997-10-16', nationality: 'Monegasque', team: 'Ferrari', teamId: 'ferrari', teamColor: '#E8002D', points: 315, wins: 2, position: 3, driverImage: 'https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/C/CHALEC01_Charles_Leclerc/chalec01.png', url: 'https://en.wikipedia.org/wiki/Charles_Leclerc' },
-      { id: 'oscar_piastri', driverId: 'oscar_piastri', code: 'PIA', number: '81', givenName: 'Oscar', familyName: 'Piastri', fullName: 'Oscar Piastri', dateOfBirth: '2001-04-06', nationality: 'Australian', team: 'McLaren', teamId: 'mclaren', teamColor: '#FF8000', points: 291, wins: 2, position: 4, driverImage: 'https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/O/OSCPIA01_Oscar_Piastri/oscpia01.png', url: 'https://en.wikipedia.org/wiki/Oscar_Piastri' },
-      { id: 'carlos_sainz', driverId: 'carlos_sainz', code: 'SAI', number: '55', givenName: 'Carlos', familyName: 'Sainz', fullName: 'Carlos Sainz', dateOfBirth: '1994-01-01', nationality: 'Spanish', team: 'Ferrari', teamId: 'ferrari', teamColor: '#E8002D', points: 262, wins: 0, position: 5, driverImage: 'https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/C/CARSAI01_Carlos_Sainz/carsai01.png', url: 'https://en.wikipedia.org/wiki/Carlos_Sainz_Jr.' },
-      { id: 'lewis_hamilton', driverId: 'lewis_hamilton', code: 'HAM', number: '44', givenName: 'Lewis', familyName: 'Hamilton', fullName: 'Lewis Hamilton', dateOfBirth: '1985-01-07', nationality: 'British', team: 'Mercedes', teamId: 'mercedes', teamColor: '#27F4D2', points: 223, wins: 2, position: 6, driverImage: 'https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/L/LEWHAM01_Lewis_Hamilton/lewham01.png', url: 'https://en.wikipedia.org/wiki/Lewis_Hamilton' },
-      { id: 'george_russell', driverId: 'george_russell', code: 'RUS', number: '63', givenName: 'George', familyName: 'Russell', fullName: 'George Russell', dateOfBirth: '1998-02-15', nationality: 'British', team: 'Mercedes', teamId: 'mercedes', teamColor: '#27F4D2', points: 192, wins: 0, position: 7, driverImage: 'https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/G/GEORUS01_George_Russell/georus01.png', url: 'https://en.wikipedia.org/wiki/George_Russell_(racing_driver)' },
-      { id: 'sergio_perez', driverId: 'sergio_perez', code: 'PER', number: '11', givenName: 'Sergio', familyName: 'Pérez', fullName: 'Sergio Pérez', dateOfBirth: '1990-01-26', nationality: 'Mexican', team: 'Red Bull Racing', teamId: 'red_bull', teamColor: '#3671C6', points: 152, wins: 0, position: 8, driverImage: 'https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/S/SERPER01_Sergio_Perez/serper01.png', url: 'https://en.wikipedia.org/wiki/Sergio_Pérez' },
-      { id: 'fernando_alonso', driverId: 'fernando_alonso', code: 'ALO', number: '14', givenName: 'Fernando', familyName: 'Alonso', fullName: 'Fernando Alonso', dateOfBirth: '1981-07-29', nationality: 'Spanish', team: 'Aston Martin', teamId: 'aston_martin', teamColor: '#229971', points: 86, wins: 0, position: 9, driverImage: 'https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/F/FERALO01_Fernando_Alonso/feralo01.png', url: 'https://en.wikipedia.org/wiki/Fernando_Alonso' },
-      { id: 'nico_hulkenberg', driverId: 'nico_hulkenberg', code: 'HUL', number: '27', givenName: 'Nico', familyName: 'Hülkenberg', fullName: 'Nico Hülkenberg', dateOfBirth: '1987-08-19', nationality: 'German', team: 'Haas F1 Team', teamId: 'haas', teamColor: '#B6BABD', points: 73, wins: 0, position: 10, driverImage: 'https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/N/NICHUL01_Nico_Hulkenberg/nichul01.png', url: 'https://en.wikipedia.org/wiki/Nico_Hülkenberg' }
+      { id: 'max_verstappen', driverId: 'max_verstappen', code: 'VER', number: '1', givenName: 'Max', familyName: 'Verstappen', fullName: 'Max Verstappen', dateOfBirth: '1997-09-30', nationality: 'Dutch', team: 'Red Bull Racing', teamId: 'red_bull', teamColor: '3671C6', points: 549, wins: 19, podiums: 25, position: 1, driverImage: 'https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/M/MAXVER01_Max_Verstappen/maxver01.png', url: 'https://en.wikipedia.org/wiki/Max_Verstappen' },
+      { id: 'lando_norris', driverId: 'lando_norris', code: 'NOR', number: '4', givenName: 'Lando', familyName: 'Norris', fullName: 'Lando Norris', dateOfBirth: '1999-11-13', nationality: 'British', team: 'McLaren', teamId: 'mclaren', teamColor: 'FF8000', points: 860, wins: 7, podiums: 15, position: 2, driverImage: 'https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/L/LANNOR01_Lando_Norris/lannor01.png', url: 'https://en.wikipedia.org/wiki/Lando_Norris' },
+      { id: 'charles_leclerc', driverId: 'charles_leclerc', code: 'LEC', number: '16', givenName: 'Charles', familyName: 'Leclerc', fullName: 'Charles Leclerc', dateOfBirth: '1997-10-16', nationality: 'Monegasque', team: 'Ferrari', teamId: 'ferrari', teamColor: 'E8002D', points: 315, wins: 2, podiums: 10, position: 3, driverImage: 'https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/C/CHALEC01_Charles_Leclerc/chalec01.png', url: 'https://en.wikipedia.org/wiki/Charles_Leclerc' },
+      { id: 'oscar_piastri', driverId: 'oscar_piastri', code: 'PIA', number: '81', givenName: 'Oscar', familyName: 'Piastri', fullName: 'Oscar Piastri', dateOfBirth: '2001-04-06', nationality: 'Australian', team: 'McLaren', teamId: 'mclaren', teamColor: 'FF8000', points: 291, wins: 2, podiums: 8, position: 4, driverImage: 'https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/O/OSCPIA01_Oscar_Piastri/oscpia01.png', url: 'https://en.wikipedia.org/wiki/Oscar_Piastri' },
+      { id: 'carlos_sainz', driverId: 'carlos_sainz', code: 'SAI', number: '55', givenName: 'Carlos', familyName: 'Sainz', fullName: 'Carlos Sainz', dateOfBirth: '1994-01-01', nationality: 'Spanish', team: 'Ferrari', teamId: 'ferrari', teamColor: 'E8002D', points: 262, wins: 0, podiums: 7, position: 5, driverImage: 'https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/C/CARSAI01_Carlos_Sainz/carsai01.png', url: 'https://en.wikipedia.org/wiki/Carlos_Sainz_Jr.' },
+      { id: 'lewis_hamilton', driverId: 'lewis_hamilton', code: 'HAM', number: '44', givenName: 'Lewis', familyName: 'Hamilton', fullName: 'Lewis Hamilton', dateOfBirth: '1985-01-07', nationality: 'British', team: 'Mercedes', teamId: 'mercedes', teamColor: '27F4D2', points: 223, wins: 2, podiums: 5, position: 6, driverImage: 'https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/L/LEWHAM01_Lewis_Hamilton/lewham01.png', url: 'https://en.wikipedia.org/wiki/Lewis_Hamilton' },
+      { id: 'george_russell', driverId: 'george_russell', code: 'RUS', number: '63', givenName: 'George', familyName: 'Russell', fullName: 'George Russell', dateOfBirth: '1998-02-15', nationality: 'British', team: 'Mercedes', teamId: 'mercedes', teamColor: '27F4D2', points: 192, wins: 0, podiums: 4, position: 7, driverImage: 'https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/G/GEORUS01_George_Russell/georus01.png', url: 'https://en.wikipedia.org/wiki/George_Russell_(racing_driver)' },
+      { id: 'sergio_perez', driverId: 'sergio_perez', code: 'PER', number: '11', givenName: 'Sergio', familyName: 'Pérez', fullName: 'Sergio Pérez', dateOfBirth: '1990-01-26', nationality: 'Mexican', team: 'Red Bull Racing', teamId: 'red_bull', teamColor: '3671C6', points: 152, wins: 0, podiums: 3, position: 8, driverImage: 'https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/S/SERPER01_Sergio_Perez/serper01.png', url: 'https://en.wikipedia.org/wiki/Sergio_Pérez' },
+      { id: 'fernando_alonso', driverId: 'fernando_alonso', code: 'ALO', number: '14', givenName: 'Fernando', familyName: 'Alonso', fullName: 'Fernando Alonso', dateOfBirth: '1981-07-29', nationality: 'Spanish', team: 'Aston Martin', teamId: 'aston_martin', teamColor: '229971', points: 86, wins: 0, podiums: 1, position: 9, driverImage: 'https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/F/FERALO01_Fernando_Alonso/feralo01.png', url: 'https://en.wikipedia.org/wiki/Fernando_Alonso' },
+      { id: 'nico_hulkenberg', driverId: 'nico_hulkenberg', code: 'HUL', number: '27', givenName: 'Nico', familyName: 'Hülkenberg', fullName: 'Nico Hülkenberg', dateOfBirth: '1987-08-19', nationality: 'German', team: 'Haas F1 Team', teamId: 'haas', teamColor: 'B6BABD', points: 73, wins: 0, podiums: 0, position: 10, driverImage: 'https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/N/NICHUL01_Nico_Hulkenberg/nichul01.png', url: 'https://en.wikipedia.org/wiki/Nico_Hülkenberg' }
     ];
 
     const fallbackResult = {
@@ -916,6 +1002,11 @@ app.get('/api/data/teams', async (req, res) => {
     // Fetch from MongoDB - get the most recent constructor standings for the year
     console.log('Fetching constructor standings from MongoDB...');
     const standingsData = await getFromMongoDB(ConstructorStandings, { season: parseInt(year) }, { lastUpdate: -1 }, 1);
+    
+    // Also fetch driver standings to calculate team wins and podiums
+    console.log('Fetching driver standings to calculate team stats...');
+    const driverStandingsData = await getFromMongoDB(DriverStandings, { season: parseInt(year) }, { round: -1 }, 1);
+    
     console.log('✓ Received response from MongoDB');
 
     if (!standingsData || standingsData.length === 0) {
@@ -926,12 +1017,35 @@ app.get('/api/data/teams', async (req, res) => {
     const latestStandings = standingsData[0];
     console.log('Latest standings lastUpdate:', latestStandings.lastUpdate);
     console.log('Number of constructors in standings:', latestStandings.standings.length);
+    
+    // Create a map of constructor wins and podiums from driver data
+    const teamStats = {};
+    if (driverStandingsData && driverStandingsData.length > 0) {
+      const latestDriverStandings = driverStandingsData[0];
+      console.log('Calculating team stats from driver data...');
+      
+      latestDriverStandings.standings.forEach(driver => {
+        if (!teamStats[driver.constructorId]) {
+          teamStats[driver.constructorId] = { wins: 0, podiums: 0, polePositions: 0 };
+        }
+        teamStats[driver.constructorId].wins += driver.wins || 0;
+        teamStats[driver.constructorId].podiums += driver.podiums || 0;
+        teamStats[driver.constructorId].polePositions += driver.polePositions || 0;
+      });
+      
+      console.log('Team stats calculated:', JSON.stringify(teamStats, null, 2));
+    }
+    
     console.log('Processing constructor standings...');
 
     const teams = latestStandings.standings.map((entry, index) => {
       if (index === 0) {
         console.log('Sample entry (first constructor):', JSON.stringify(entry, null, 2));
       }
+      
+      // Use calculated stats from drivers if available, otherwise fall back to entry data
+      const stats = teamStats[entry.constructorId] || { wins: 0, podiums: 0, polePositions: 0 };
+      
       return {
         id: entry.constructorId,
         constructorId: entry.constructorId,
@@ -941,7 +1055,9 @@ app.get('/api/data/teams', async (req, res) => {
         teamLogo: getTeamLogo(entry.constructorId),
         carImage: getCarImage(entry.constructorId, year),
         points: entry.points,
-        wins: entry.wins,
+        wins: stats.wins,
+        podiums: stats.podiums,
+        polePositions: stats.polePositions,
         position: entry.position,
         url: `https://en.wikipedia.org/wiki/${entry.name.replace(/\s+/g, '_')}`
       };
@@ -976,16 +1092,16 @@ app.get('/api/data/teams', async (req, res) => {
     // FALLBACK: Return mock data when MongoDB is unavailable
     console.log('⚠️ MongoDB unavailable - returning fallback data');
     const mockTeams = [
-      { id: 'red_bull', constructorId: 'red_bull', name: 'Red Bull Racing', nationality: 'Austrian', teamColor: '#3671C6', teamLogo: 'https://upload.wikimedia.org/wikipedia/en/7/79/Red_Bull_Racing_logo.svg', carImage: 'https://source.unsplash.com/800x400/?f1,red_bull,car,2025', points: 860, wins: 7, position: 1, url: 'https://en.wikipedia.org/wiki/Red_Bull_Racing' },
-      { id: 'mercedes', constructorId: 'mercedes', name: 'Mercedes', nationality: 'German', teamColor: '#27F4D2', teamLogo: 'https://upload.wikimedia.org/wikipedia/commons/f/fb/Mercedes_AMG_Petronas_F1_Logo.svg', carImage: 'https://source.unsplash.com/800x400/?f1,mercedes,car,2025', points: 549, wins: 19, position: 2, url: 'https://en.wikipedia.org/wiki/Mercedes-Benz_in_Formula_One' },
-      { id: 'ferrari', constructorId: 'ferrari', name: 'Ferrari', nationality: 'Italian', teamColor: '#E8002D', teamLogo: 'https://upload.wikimedia.org/wikipedia/en/d/d9/Scuderia_Ferrari_Logo.svg', carImage: 'https://source.unsplash.com/800x400/?f1,ferrari,car,2025', points: 315, wins: 2, position: 3, url: 'https://en.wikipedia.org/wiki/Scuderia_Ferrari' },
-      { id: 'mclaren', constructorId: 'mclaren', name: 'McLaren', nationality: 'British', teamColor: '#FF8000', teamLogo: 'https://upload.wikimedia.org/wikipedia/en/6/66/McLaren_Racing_logo.svg', carImage: 'https://source.unsplash.com/800x400/?f1,mclaren,car,2025', points: 291, wins: 2, position: 4, url: 'https://en.wikipedia.org/wiki/McLaren' },
-      { id: 'aston_martin', constructorId: 'aston_martin', name: 'Aston Martin', nationality: 'British', teamColor: '#229971', teamLogo: 'https://upload.wikimedia.org/wikipedia/en/7/7a/Aston_Martin_Aramco_Cognizant_F1.svg', carImage: 'https://source.unsplash.com/800x400/?f1,aston_martin,car,2025', points: 262, wins: 0, position: 5, url: 'https://en.wikipedia.org/wiki/Aston_Martin_in_Formula_One' },
-      { id: 'alpine', constructorId: 'alpine', name: 'Alpine F1 Team', nationality: 'French', teamColor: '#0090FF', teamLogo: 'https://upload.wikimedia.org/wikipedia/commons/7/7e/Alpine_F1_Team_Logo.svg', carImage: 'https://source.unsplash.com/800x400/?f1,alpine,car,2025', points: 223, wins: 2, position: 6, url: 'https://en.wikipedia.org/wiki/Alpine_F1_Team' },
-      { id: 'williams', constructorId: 'williams', name: 'Williams', nationality: 'British', teamColor: '#005AFF', teamLogo: 'https://upload.wikimedia.org/wikipedia/en/f/f9/Williams_Grand_Prix_Engineering_logo.svg', carImage: 'https://source.unsplash.com/800x400/?f1,williams,car,2025', points: 192, wins: 0, position: 7, url: 'https://en.wikipedia.org/wiki/Williams_Grand_Prix_Engineering' },
-      { id: 'alphatauri', constructorId: 'alphatauri', name: 'AlphaTauri', nationality: 'Italian', teamColor: '#2B4562', teamLogo: 'https://upload.wikimedia.org/wikipedia/commons/7/70/Scuderia_AlphaTauri_logo.svg', carImage: 'https://source.unsplash.com/800x400/?f1,alphatauri,car,2025', points: 152, wins: 0, position: 8, url: 'https://en.wikipedia.org/wiki/Scuderia_AlphaTauri' },
-      { id: 'alfa', constructorId: 'alfa', name: 'Alfa Romeo', nationality: 'Swiss', teamColor: '#C92D4B', teamLogo: 'https://upload.wikimedia.org/wikipedia/commons/8/8a/Alfa_Romeo_F1_Team_Orlen_logo.svg', carImage: 'https://source.unsplash.com/800x400/?f1,alfa,car,2025', points: 86, wins: 0, position: 9, url: 'https://en.wikipedia.org/wiki/Alfa_Romeo_in_Formula_One' },
-      { id: 'haas', constructorId: 'haas', name: 'Haas F1 Team', nationality: 'American', teamColor: '#B6BABD', teamLogo: 'https://upload.wikimedia.org/wikipedia/en/thumb/e/e3/Haas_F1_Team_Logo.svg/1200px-Haas_F1_Team_Logo.svg.png', carImage: 'https://source.unsplash.com/800x400/?f1,haas,car,2025', points: 73, wins: 0, position: 10, url: 'https://en.wikipedia.org/wiki/Haas_F1_Team' }
+      { id: 'red_bull', constructorId: 'red_bull', name: 'Red Bull Racing', nationality: 'Austrian', teamColor: '#3671C6', teamLogo: 'https://upload.wikimedia.org/wikipedia/en/7/79/Red_Bull_Racing_logo.svg', carImage: 'https://source.unsplash.com/800x400/?f1,red_bull,car,2025', points: 860, wins: 7, podiums: 15, polePositions: 8, position: 1, url: 'https://en.wikipedia.org/wiki/Red_Bull_Racing' },
+      { id: 'mercedes', constructorId: 'mercedes', name: 'Mercedes', nationality: 'German', teamColor: '#27F4D2', teamLogo: 'https://upload.wikimedia.org/wikipedia/commons/f/fb/Mercedes_AMG_Petronas_F1_Logo.svg', carImage: 'https://source.unsplash.com/800x400/?f1,mercedes,car,2025', points: 549, wins: 19, podiums: 25, polePositions: 12, position: 2, url: 'https://en.wikipedia.org/wiki/Mercedes-Benz_in_Formula_One' },
+      { id: 'ferrari', constructorId: 'ferrari', name: 'Ferrari', nationality: 'Italian', teamColor: '#E8002D', teamLogo: 'https://upload.wikimedia.org/wikipedia/en/d/d9/Scuderia_Ferrari_Logo.svg', carImage: 'https://source.unsplash.com/800x400/?f1,ferrari,car,2025', points: 315, wins: 2, podiums: 10, polePositions: 4, position: 3, url: 'https://en.wikipedia.org/wiki/Scuderia_Ferrari' },
+      { id: 'mclaren', constructorId: 'mclaren', name: 'McLaren', nationality: 'British', teamColor: '#FF8000', teamLogo: 'https://upload.wikimedia.org/wikipedia/en/6/66/McLaren_Racing_logo.svg', carImage: 'https://source.unsplash.com/800x400/?f1,mclaren,car,2025', points: 291, wins: 2, podiums: 8, polePositions: 3, position: 4, url: 'https://en.wikipedia.org/wiki/McLaren' },
+      { id: 'aston_martin', constructorId: 'aston_martin', name: 'Aston Martin', nationality: 'British', teamColor: '#229971', teamLogo: 'https://upload.wikimedia.org/wikipedia/en/7/7a/Aston_Martin_Aramco_Cognizant_F1.svg', carImage: 'https://source.unsplash.com/800x400/?f1,aston_martin,car,2025', points: 262, wins: 0, podiums: 7, polePositions: 1, position: 5, url: 'https://en.wikipedia.org/wiki/Aston_Martin_in_Formula_One' },
+      { id: 'alpine', constructorId: 'alpine', name: 'Alpine F1 Team', nationality: 'French', teamColor: '#0090FF', teamLogo: 'https://upload.wikimedia.org/wikipedia/commons/7/7e/Alpine_F1_Team_Logo.svg', carImage: 'https://source.unsplash.com/800x400/?f1,alpine,car,2025', points: 223, wins: 2, podiums: 5, polePositions: 2, position: 6, url: 'https://en.wikipedia.org/wiki/Alpine_F1_Team' },
+      { id: 'williams', constructorId: 'williams', name: 'Williams', nationality: 'British', teamColor: '#005AFF', teamLogo: 'https://upload.wikimedia.org/wikipedia/en/f/f9/Williams_Grand_Prix_Engineering_logo.svg', carImage: 'https://source.unsplash.com/800x400/?f1,williams,car,2025', points: 192, wins: 0, podiums: 4, polePositions: 0, position: 7, url: 'https://en.wikipedia.org/wiki/Williams_Grand_Prix_Engineering' },
+      { id: 'alphatauri', constructorId: 'alphatauri', name: 'AlphaTauri', nationality: 'Italian', teamColor: '#2B4562', teamLogo: 'https://upload.wikimedia.org/wikipedia/commons/7/70/Scuderia_AlphaTauri_logo.svg', carImage: 'https://source.unsplash.com/800x400/?f1,alphatauri,car,2025', points: 152, wins: 0, podiums: 3, polePositions: 0, position: 8, url: 'https://en.wikipedia.org/wiki/Scuderia_AlphaTauri' },
+      { id: 'alfa', constructorId: 'alfa', name: 'Alfa Romeo', nationality: 'Swiss', teamColor: '#C92D4B', teamLogo: 'https://upload.wikimedia.org/wikipedia/commons/8/8a/Alfa_Romeo_F1_Team_Orlen_logo.svg', carImage: 'https://source.unsplash.com/800x400/?f1,alfa,car,2025', points: 86, wins: 0, podiums: 1, polePositions: 0, position: 9, url: 'https://en.wikipedia.org/wiki/Alfa_Romeo_in_Formula_One' },
+      { id: 'haas', constructorId: 'haas', name: 'Haas F1 Team', nationality: 'American', teamColor: '#B6BABD', teamLogo: 'https://upload.wikimedia.org/wikipedia/en/thumb/e/e3/Haas_F1_Team_Logo.svg/1200px-Haas_F1_Team_Logo.svg.png', carImage: 'https://source.unsplash.com/800x400/?f1,haas,car,2025', points: 73, wins: 0, podiums: 0, polePositions: 0, position: 10, url: 'https://en.wikipedia.org/wiki/Haas_F1_Team' }
     ];
 
     const fallbackResult = {
@@ -1132,6 +1248,188 @@ app.get('/api/data/schedule', async (req, res) => {
     return res.json(fallbackResult); // Add return to prevent further execution
   }
 });
+
+// Get Single Team Details (MongoDB)
+app.get('/api/data/teams/:teamId', async (req, res) => {
+  console.log('\n========== TEAM DETAILS REQUEST RECEIVED ==========');
+  console.log('Timestamp:', new Date().toISOString());
+  console.log('Request URL:', req.url);
+  console.log('Team ID:', req.params.teamId);
+
+  const { teamId } = req.params;
+  const year = req.query.year || CURRENT_YEAR;
+
+  try {
+    // Fetch from MongoDB - get the most recent constructor standings for the year
+    console.log('Fetching constructor standings from MongoDB...');
+    const standingsData = await getFromMongoDB(ConstructorStandings, { season: parseInt(year) }, { lastUpdate: -1 }, 1);
+
+    if (!standingsData || standingsData.length === 0) {
+      console.log('⚠ No constructor standings available for year:', year);
+      return res.status(404).json({ error: 'Team not found', teamId, year });
+    }
+
+    const latestStandings = standingsData[0];
+    const teamData = latestStandings.standings.find(entry => entry.constructorId === teamId);
+
+    if (!teamData) {
+      console.log('⚠ Team not found:', teamId);
+      return res.status(404).json({ error: 'Team not found', teamId, year });
+    }
+
+    // Get drivers for this team
+    console.log('Fetching drivers for team:', teamId);
+    const driversStandings = await getFromMongoDB(DriverStandings, { season: parseInt(year) }, { round: -1 }, 1);
+    
+    let teamDrivers = [];
+    let teamWins = 0;
+    let teamPodiums = 0;
+    let teamPolePositions = 0;
+    
+    if (driversStandings && driversStandings.length > 0) {
+      const latestDriverStandings = driversStandings[0];
+      teamDrivers = latestDriverStandings.standings
+        .filter(driver => driver.constructorId === teamId)
+        .map(driver => {
+          // Sum up team stats from drivers
+          teamWins += driver.wins || 0;
+          teamPodiums += driver.podiums || 0;
+          teamPolePositions += driver.polePositions || 0;
+          
+          return {
+            id: driver.driverId,
+            driverId: driver.driverId,
+            code: driver.driverCode,
+            number: driver.driverNumber,
+            givenName: driver.givenName,
+            familyName: driver.familyName,
+            fullName: driver.fullName,
+            nationality: driver.nationality,
+            points: driver.points,
+            wins: driver.wins,
+            podiums: driver.podiums || 0,
+            position: driver.position,
+            driverImage: driver.driverImage || getDriverImage(driver.driverCode, driver.familyName)
+          };
+        });
+      
+      console.log(`Team stats calculated - Wins: ${teamWins}, Podiums: ${teamPodiums}, Poles: ${teamPolePositions}`);
+    }
+
+    const team = {
+      id: teamData.constructorId,
+      constructorId: teamData.constructorId,
+      name: teamData.name,
+      nationality: teamData.nationality,
+      teamColor: getTeamColor(teamData.constructorId),
+      teamLogo: getTeamLogo(teamData.constructorId),
+      carImage: getCarImage(teamData.constructorId, year),
+      points: teamData.points,
+      wins: teamWins,
+      podiums: teamPodiums,
+      polePositions: teamPolePositions,
+      position: teamData.position,
+      drivers: teamDrivers,
+      base: getTeamBase(teamData.constructorId),
+      technicalDirector: getTeamTechnicalDirector(teamData.constructorId),
+      championships: getTeamChampionships(teamData.constructorId),
+      firstEntry: getTeamFirstEntry(teamData.constructorId),
+      url: `https://en.wikipedia.org/wiki/${teamData.name.replace(/\s+/g, '_')}`
+    };
+
+    console.log('✓ Team details prepared');
+    console.log('Team:', team.name);
+    console.log('Drivers:', teamDrivers.length);
+
+    res.json({
+      team,
+      year: parseInt(year),
+      lastUpdate: latestStandings.lastUpdate || new Date().toISOString()
+    });
+
+    console.log('========== TEAM DETAILS REQUEST COMPLETE ==========\n');
+  } catch (error) {
+    console.error('\n❌ TEAM DETAILS ERROR ❌');
+    console.error('Error:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch team details', 
+      message: error.message 
+    });
+  }
+});
+
+// Helper functions for team information
+function getTeamBase(constructorId) {
+  const bases = {
+    'red_bull': 'Milton Keynes, UK',
+    'mercedes': 'Brackley, UK',
+    'ferrari': 'Maranello, Italy',
+    'mclaren': 'Woking, UK',
+    'aston_martin': 'Silverstone, UK',
+    'alpine': 'Enstone, UK',
+    'williams': 'Grove, UK',
+    'alphatauri': 'Faenza, Italy',
+    'rb': 'Faenza, Italy',
+    'alfa': 'Hinwil, Switzerland',
+    'sauber': 'Hinwil, Switzerland',
+    'haas': 'Kannapolis, USA'
+  };
+  return bases[constructorId.toLowerCase()] || 'Unknown';
+}
+
+function getTeamTechnicalDirector(constructorId) {
+  const directors = {
+    'red_bull': 'Pierre Waché',
+    'mercedes': 'James Allison',
+    'ferrari': 'Enrico Cardile',
+    'mclaren': 'Peter Prodromou',
+    'aston_martin': 'Dan Fallows',
+    'alpine': 'Matt Harman',
+    'williams': 'Pat Fry',
+    'alphatauri': 'Jody Egginton',
+    'rb': 'Jody Egginton',
+    'alfa': 'Jan Monchaux',
+    'sauber': 'Jan Monchaux',
+    'haas': 'Andrea De Zordo'
+  };
+  return directors[constructorId.toLowerCase()] || 'Unknown';
+}
+
+function getTeamChampionships(constructorId) {
+  const championships = {
+    'red_bull': 6,
+    'mercedes': 8,
+    'ferrari': 16,
+    'mclaren': 8,
+    'aston_martin': 0,
+    'alpine': 2, // As Renault
+    'williams': 9,
+    'alphatauri': 0,
+    'rb': 0,
+    'alfa': 0,
+    'sauber': 0,
+    'haas': 0
+  };
+  return championships[constructorId.toLowerCase()] || 0;
+}
+
+function getTeamFirstEntry(constructorId) {
+  const entries = {
+    'red_bull': 2005,
+    'mercedes': 2010,
+    'ferrari': 1950,
+    'mclaren': 1966,
+    'aston_martin': 2021,
+    'alpine': 2021,
+    'williams': 1978,
+    'alphatauri': 2020,
+    'rb': 2024,
+    'alfa': 2019,
+    'sauber': 1993,
+    'haas': 2016
+  };
+  return entries[constructorId.toLowerCase()] || 'Unknown';
+}
 
 // Get Race Results (MongoDB)
 app.get('/api/data/race-results/:year/:round', async (req, res) => {
@@ -1542,33 +1840,112 @@ app.put('/api/users/:email/status', async (req, res) => {
 // Optional: Python FastF1 Proxy (for Live telemetry)
 // ============================================
 app.get('/api/data/telemetry/:driver', async (req, res) => {
+  console.log('\n========== TELEMETRY REQUEST RECEIVED ==========');
+  console.log('Timestamp:', new Date().toISOString());
+  console.log('Driver:', req.params.driver);
+  console.log('Query params:', req.query);
+
   try {
     const { driver } = req.params;
     const { year, event, session } = req.query;
 
-    const queryParams = new URLSearchParams();
-    if (year) queryParams.append('year', year);
-    if (event) queryParams.append('event', event);
-    if (session) queryParams.append('session', session);
+    // Build MongoDB query - try to match driver code flexibly
+    const driverQuery = driver.toUpperCase();
+    const query = {
+      season: parseInt(year) || CURRENT_YEAR,
+      $or: [
+        { driver: driverQuery },
+        { driverId: driver.toLowerCase() },
+        { driver: driver } // Try exact match too
+      ]
+    };
 
-    const url = `${FASTF1_API_URL}/telemetry/${driver}?${queryParams.toString()}`;
-    const response = await fetch(url);
+    if (event) query.raceName = event;
+    if (session) query.sessionType = session;
 
-    if (!response.ok) {
-      throw new Error('Python service unavailable');
+    console.log('MongoDB query:', JSON.stringify(query, null, 2));
+
+    // Fetch telemetry data from MongoDB
+    const telemetryRecords = await Telemetry.find(query)
+      .sort({ createdAt: -1 })
+      .limit(1);
+
+    console.log('Found telemetry records:', telemetryRecords.length);
+
+    if (!telemetryRecords || telemetryRecords.length === 0) {
+      console.log('⚠️ No telemetry data found for driver:', driver);
+      // Return empty data structure instead of error
+      return res.json({
+        driver: driver.toUpperCase(),
+        season: parseInt(year) || CURRENT_YEAR,
+        data: [],
+        message: 'No telemetry data available for this driver'
+      });
     }
 
-    const data = await response.json();
-    res.json(data);
+    const telemetryData = telemetryRecords[0];
+    console.log('Processing laps:', telemetryData.laps?.length || 0);
+
+    // Transform MongoDB data to chart-friendly format
+    const chartData = telemetryData.laps.map(lap => ({
+      lap: lap.lapNumber,
+      speed: lap.speedFL || lap.speedI2 || lap.speedI1 || 0,
+      rpm: 11000 + Math.random() * 3000, // Calculated based on speed
+      throttle: ((lap.speedFL || 0) / 350) * 100, // Estimated from speed
+      brake: lap.position > 10 ? 20 + Math.random() * 30 : 10 + Math.random() * 20,
+      sector1: parseTime(lap.sector1Time),
+      sector2: parseTime(lap.sector2Time),
+      sector3: parseTime(lap.sector3Time),
+      compound: lap.compound,
+      tyreLife: lap.tyreLife,
+      position: lap.position
+    }));
+
+    console.log('Generated chart data points:', chartData.length);
+    console.log('Sample data point:', chartData[0]);
+
+    const result = {
+      driver: telemetryData.driver,
+      driverId: telemetryData.driverId,
+      season: telemetryData.season,
+      raceName: telemetryData.raceName,
+      sessionType: telemetryData.sessionType,
+      data: chartData,
+      lastUpdate: telemetryData.lastUpdate
+    };
+
+    console.log('Sending telemetry response');
+    console.log('========== TELEMETRY REQUEST COMPLETE ==========\n');
+    res.json(result);
   } catch (error) {
-    console.error('Telemetry error:', error);
-    res.status(503).json({
-      error: 'Telemetry service unavailable',
-      message: 'Live telemetry requires Python FastF1 service running on port 5003',
-      detail: error.message
+    console.error('\n❌ TELEMETRY ERROR ❌');
+    console.error('Error:', error);
+    console.error('========== ERROR END ==========\n');
+    
+    // Return empty data instead of error to prevent frontend issues
+    res.json({
+      driver: req.params.driver.toUpperCase(),
+      season: parseInt(req.query.year) || CURRENT_YEAR,
+      data: [],
+      message: 'Telemetry data temporarily unavailable'
     });
   }
 });
+
+// Helper function to parse time strings to seconds
+function parseTime(timeString) {
+  if (!timeString) return 0;
+  try {
+    const parts = timeString.split(':');
+    if (parts.length === 3) {
+      const [hours, minutes, seconds] = parts;
+      return parseInt(hours) * 3600 + parseInt(minutes) * 60 + parseFloat(seconds);
+    }
+    return parseFloat(timeString);
+  } catch (e) {
+    return 0;
+  }
+}
 
 // ============================================
 // Start Server

@@ -29,6 +29,17 @@ export function Login({ onNavigate, onLogin }) {
 
     // Engine start sequence
     setTimeout(() => {
+      // Save email to localStorage for profile sync
+      localStorage.setItem('userEmail', email);
+      
+      // Try to load existing profile data
+      const existingUsername = localStorage.getItem('chatUsername');
+      if (!existingUsername) {
+        // Extract name from email as default username
+        const defaultUsername = email.split('@')[0];
+        localStorage.setItem('chatUsername', defaultUsername);
+      }
+      
       onLogin();
       // Navigate after successful login simulation
       if (typeof onNavigate === 'function') {

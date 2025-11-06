@@ -1,256 +1,171 @@
-# TheGridLive - F1 Web Application
+<!--
+  Updated README: cleaned, restructured, and expanded quickstart.
+  Keeps content accurate to repo scripts (backend: `npm start`/`npm run dev`; frontend: `npm run dev`).
+-->
 
-A full-stack Formula 1 web application featuring real-time race data, driver standings, constructor standings, live chat, and more. Built with a modern three-tier architecture using FastF1, Node.js, and React.
+# TheGridLive
 
-## �️ Features
+A beautiful, data-rich Formula 1 web app: live race telemetry, driver & constructor standings, historical data, a news feed, and a real-time chat — powered by a Python data service, a Node.js API, and a React/Vite frontend.
 
-- **Live Race Data**: Real-time driver and constructor standings from FastF1
-- **Driver Profiles**: Comprehensive driver information with stats and visualizations
-- **Race Schedule**: Complete F1 calendar with race results
-- **F1 Rewind**: Historical data and legendary drivers
-- **Podium Predictor**: Interactive race prediction tool
-- **News Feed**: Latest F1 news and updates
-- **Live Chat**: Real-time chat room for F1 fans
-- **User Profiles**: Personalized experience with favorite drivers and teams
+Why this repo exists: to explore F1 data, build interactive visualizations, and provide a delightful fan experience for race weekends.
 
-## 🏗️ Architecture
+## Highlights
 
-This application uses a **three-tier architecture**:
+- Live and historical F1 data via FastF1
+- Driver profiles, race results and schedules
+- Real-time chat rooms and user favorites (MongoDB)
+- Interactive predictors, stats and visualizations (Recharts)
+- Fast developer experience with Vite + nodemon
 
-1. **Python Data Service (Flask)** - Port 5003
-   - Connects to FastF1 library to fetch live F1 data
-   - Provides REST API endpoints for race data, standings, telemetry
+## Quick links
 
-2. **Node.js Backend (Express)** - Port 5002
-   - Proxies requests from frontend to Python service
-   - Handles user data and chat (MongoDB)
-   - Serves additional endpoints for news, stats, and historical data
+- Frontend: `frontend/` (Vite + React)
+- Backend: `backend/` (Express + Mongoose)
+- Data service: `f1data/` (Python scripts / FastF1 outputs)
 
-3. **React Frontend (Vite)** - Port 5173
-   - Modern React app with Vite and TailwindCSS
-   - Beautiful UI with animations (Framer Motion)
-   - Charts and visualizations (Recharts)
-   - Centralized API helper (`f1Api.js`)
+## Quick Start (Windows - cmd.exe)
 
-## 🚀 Quick Start
+This project has three main pieces. Below are minimal steps to get them running locally.
 
-### Prerequisites
+Prerequisites
 
-- **Python 3.8+** with pip
-- **Node.js 18+** with npm
-- **MongoDB** (local or MongoDB Atlas)
+- Node.js (v18+ recommended)
+- npm
+- Python 3.8+ (for the FastF1 data scripts, optional depending on your needs)
+- MongoDB (local or hosted)
 
-### 1. Set Up Python Data Service
+1) Start the backend
 
-```bash
-cd f1-data-service
+Open a terminal (cmd.exe):
 
-# Create virtual environment
-python -m venv venv
-
-# Activate virtual environment
-source venv/bin/activate  # macOS/Linux
-# OR
-venv\Scripts\activate  # Windows
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Run the service
-python python_server.py
-```
-
-The Python service will start on **http://localhost:5003**
-
-### 2. Set Up Node.js Backend
-
-```bash
-cd backend
-
-# Install dependencies
+```cmd
+cd c:\Users\heerm\OneDrive\Desktop\TheGridLive\backend
 npm install
 
-# Create .env file (optional - see Environment Variables section)
-# Default PORT=5002, MongoDB URI, etc.
+:: create a .env (example below) or set the vars directly
+:: set MONGO_URI=mongodb://localhost:27017/thegridlive
+:: set PYTHON_API_URL=http://localhost:5003
 
-# Start the server
+:: Development
+npm run dev
+
+:: Production-like
 npm start
 ```
 
-The backend will start on **http://localhost:5002**
+The backend scripts are defined in `backend/package.json`: `start` -> `node server.js`, `dev` -> `nodemon server.js`.
 
-### 3. Set Up React Frontend
+2) Start the frontend
 
-```bash
-cd frontend
-
-# Install dependencies
+```cmd
+cd ..\frontend
 npm install
-
-# Start development server
 npm run dev
 ```
 
-The frontend will start on **http://localhost:5173**
+Default Vite dev server: http://localhost:5173
 
-### 🎯 One-Command Start (Recommended)
+3) (Optional) Python / FastF1 data
 
-```bash
-chmod +x start-all.sh
-./start-all.sh
+If you use the FastF1-based data pipeline, follow instructions in `f1data/` or `f1data/downloaddata.py`. The project contains cached CSV outputs under `f1data/outputs_2025/` used by the backend.
+
+4) One-line helper
+
+There is a `start-all.sh` script in the repo for UNIX-like systems. On Windows, run each service in separate terminals, or use WSL.
+
+## Environment variables
+
+Create a `backend/.env` file with at least:
+
 ```
-
-## ⚙️ Environment Variables
-
-### Backend (`.env`)
-```env
 PORT=5002
-MONGO_URI=mongodb://localhost:27017/f1app
-PYTHON_API_URL=http://localhost:5003/api/v1
+MONGO_URI=mongodb://localhost:27017/thegridlive
+PYTHON_API_URL=http://localhost:5003
 ```
 
-### Frontend (`.env`)
-```env
+For the frontend, Vite uses `VITE_` prefixed variables. Example `frontend/.env`:
+
+```
 VITE_API_URL=http://localhost:5002
 ```
 
-## 📡 API Endpoints
+Tip for Windows cmd.exe (one-off):
 
-### Python Data Service (Port 5003)
-- `GET /api/v1/health` - Health check
-- `GET /api/v1/standings?year=2025` - Driver standings
-- `GET /api/v1/constructor-standings?year=2025` - Constructor standings
-- `GET /api/v1/drivers?year=2025` - List of drivers
-- `GET /api/v1/telemetry/<driver>?year=2025&event=1&session=R` - Driver telemetry
-- `GET /api/v1/schedule?year=2025` - Race schedule
-- `GET /api/v1/race-results/<year>/<event>` - Race results
-
-### Node.js Backend (Port 5002)
-**F1 Data (proxied from Python service):**
-- `GET /api/data/standings`
-- `GET /api/data/constructor-standings`
-- `GET /api/data/drivers`
-- `GET /api/data/telemetry/:driverAbbr`
-- `GET /api/data/schedule`
-- `GET /api/data/race-results/:year/:event`
-- `GET /api/data/stats` - Mock data for F1 Rewind, Podium Predictor, News
-
-**User & Chat:**
-- `GET /api/user/:email` - Get user profile
-- `POST /api/user` - Create/update user
-- `PATCH /api/user/:email/favorite-driver` - Update favorite driver
-- `GET /api/chat/rooms` - Get chat rooms
-- `POST /api/chat/rooms` - Create chat room
-- `GET /api/chat/rooms/:roomId/messages` - Get messages
-- `POST /api/chat/rooms/:roomId/messages` - Send message
-
-## 🛠️ Technology Stack
-
-### Python Data Service
-- Flask - Web framework
-- FastF1 - F1 data library
-- Flask-CORS - Cross-origin support
-- Pandas - Data processing
-
-### Node.js Backend
-- Express - Web framework
-- Mongoose - MongoDB ODM
-- CORS - Cross-origin support
-
-### React Frontend
-- React 18 - UI library
-- Vite - Build tool
-- TailwindCSS - Styling
-- Framer Motion - Animations
-- Recharts - Data visualizations
-- Lucide React - Icons
-
-## 🐛 Troubleshooting
-
-### Python Service Issues
-**Port 5003 already in use:**
-```bash
-# Windows
-netstat -ano | findstr :5003
-taskkill /PID <PID> /F
-
-# macOS/Linux
-lsof -i :5003
-kill -9 <PID>
+```cmd
+set MONGO_URI=mongodb://localhost:27017/thegridlive
+set VITE_API_URL=http://localhost:5002
 ```
 
-**FastF1 data not loading:**
-```bash
-# Clear cache and restart
-rm -rf f1-data-service/cache
-python python_server.py
-```
-
-### Backend Issues
-**Cannot connect to Python service:**
-```bash
-# Check if Python service is running
-curl http://localhost:5003/api/v1/health
-```
-
-**MongoDB connection failed:**
-- Ensure MongoDB is running locally, or
-- Use MongoDB Atlas and update `MONGO_URI` in `.env`
-
-### Frontend Issues
-**API calls failing:**
-- Verify backend is running: `curl http://localhost:5002/api/health`
-- Check `.env` has correct `VITE_API_URL`
-- Restart frontend after .env changes
-
-## 📂 Project Structure
+## Project structure (top-level)
 
 ```
 TheGridLive/
-├── f1-data-service/          # Python Flask service
-│   ├── python_server.py      # Main Flask app
-│   ├── requirements.txt      # Python dependencies
-│   └── cache/                # FastF1 data cache (gitignored)
-├── backend/                  # Node.js Express server
-│   ├── server.js             # Main Express app
-│   ├── models/               # MongoDB models
-│   └── package.json
-├── frontend/                 # React Vite app
-│   ├── src/
-│   │   ├── pages/           # Page components
-│   │   ├── components/      # Reusable components
-│   │   ├── api/             # API helper (f1Api.js)
-│   │   └── App.jsx
-│   └── package.json
-└── README.md
+├─ backend/        # Express API (server.js, models/*)
+├─ frontend/       # Vite + React UI
+├─ f1data/         # Python scripts, CSV outputs & FastF1 cache
+├─ README.md
+├─ SETUP_GUIDE.md
+└─ start-all.sh
 ```
 
-## 📝 Additional Documentation
+## Architecture (short)
 
-- **[SETUP_GUIDE.md](./SETUP_GUIDE.md)** - Detailed setup instructions with troubleshooting
-- **[frontend/src/Attributions.md](./frontend/src/Attributions.md)** - License information for third-party resources
+1. Python/FastF1 (data ingestion, optional) — processes raw race data, produces CSV/JSON outputs.
+2. Node.js backend (Express) — serves API, proxies F1 data, stores users & chat in MongoDB.
+3. React frontend (Vite) — interactive UI, calls backend APIs.
 
-## 🤝 Contributing
+## Notable npm scripts (from package.json)
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+- backend: `npm run dev` (nodemon server.js) and `npm start` (node server.js)
+- frontend: `npm run dev` (vite), `npm run build`, `npm run preview`
 
-## 📄 License
+## Troubleshooting
 
-This project is open source and available under the MIT License.
+- Backend can't reach MongoDB: ensure `MONGO_URI` is correct and MongoDB is running.
+- Broken API calls from the frontend: confirm `VITE_API_URL` and restart frontend after changes.
+- Python/FastF1 errors: FastF1 needs network access for session data; check the `f1data/` cache and Python dependencies.
 
-## 🙏 Credits
+Useful Windows troubleshooting commands (cmd.exe):
 
-- **FastF1** - Python library for F1 data
-- **Unsplash** - Dynamic images
-- **Formula 1** - For the amazing sport!
-- **shadcn/ui** - UI components (used under MIT license)
+```cmd
+:: Find process using port
+netstat -ano | findstr :5002
+
+:: Kill process by PID
+taskkill /PID <PID> /F
+```
+
+## Contributing
+
+We welcome contributions!
+
+1. Fork the repo
+2. Create a branch: `git checkout -b feat/your-feature`
+3. Make changes and add tests where appropriate
+4. Open a pull request with a short description and screenshots if UI changes
+
+Guidelines
+
+- Keep commits small and focused
+- Follow existing code style
+- Add or update `Attributions.md` for any third-party assets you introduce
+
+## License
+
+This project is MIT-licensed — see the `LICENSE` file.
+
+## Credits & Data sources
+
+- FastF1 (data)
+- Formula 1 (public-facing stats and schedules)
+- Icons, images and UI kits are credited in `frontend/src/Attributions.md`
 
 ---
 
-**Happy Racing! 🏎️💨**
+If you'd like, I can also:
 
-For detailed setup instructions and troubleshooting, see [SETUP_GUIDE.md](./SETUP_GUIDE.md)
+- Add badges (build, license, npm version) at the top
+- Create a small `README` table of contents with anchors
+- Add a `try-it` section that runs a quick smoke test script
+
+Happy hacking — and happy racing! 🏁

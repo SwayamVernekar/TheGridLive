@@ -2,10 +2,8 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Award, Trophy, TrendingUp, Users, Loader2, BarChart3, X, Zap, Target } from 'lucide-react';
 import { fetchTeams } from '../api/f1Api';
-
-const ImageWithFallback = ({ src, alt, className }) => (
-  <img src={src} alt={alt} className={className} loading="lazy" />
-);
+import { ImageWithFallback } from '../components/ImageWithFallback';
+import { getTeamImage, getCarImage } from '../utils/imageUtils';
 
 // Team logos mapping (using official F1 team logos)
 const teamLogos = {
@@ -154,7 +152,12 @@ export function Teams({ onNavigate }) {
                   >
                     <div className="flex items-center gap-3 mb-4">
                       {team.teamLogo && (
-                        <img src={team.teamLogo} alt={team.name} className="w-12 h-12 object-contain" />
+                        <ImageWithFallback 
+                          src={team.teamLogo} 
+                          alt={team.name} 
+                          className="w-12 h-12 object-contain"
+                          type="team"
+                        />
                       )}
                       <div>
                         <h3 className="text-xl font-bold text-f1light">{team.name}</h3>
@@ -355,13 +358,17 @@ export function Teams({ onNavigate }) {
                 <div className="flex items-center gap-3">
                   <div className="text-2xl font-bold text-f1red">#{index + 1}</div>
                   {team.teamLogo && (
-                    <motion.img
-                      src={team.teamLogo}
-                      alt={`${team.name} logo`}
-                      className="w-12 h-12 object-contain"
+                    <motion.div
                       whileHover={{ scale: 1.1 }}
                       transition={{ duration: 0.2 }}
-                    />
+                    >
+                      <ImageWithFallback
+                        src={team.teamLogo}
+                        alt={`${team.name} logo`}
+                        className="w-12 h-12 object-contain"
+                        type="team"
+                      />
+                    </motion.div>
                   )}
                 </div>
                 {/* Selection checkbox */}
@@ -401,9 +408,10 @@ export function Teams({ onNavigate }) {
                   transition={{ duration: 0.3 }}
                 >
                   <ImageWithFallback
-                    src={team.carImage || `https://source.unsplash.com/600x400/?f1car,racing,speed,${team.name?.replace(/\s+/g, '').toLowerCase()}`}
+                    src={team.carImage || getCarImage(team.id, 2025)}
                     alt={team.name}
                     className="w-full h-full object-cover mix-blend-luminosity opacity-80"
+                    type="car"
                   />
                 </motion.div>
 

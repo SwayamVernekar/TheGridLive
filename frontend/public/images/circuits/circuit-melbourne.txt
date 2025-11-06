@@ -1,5 +1,0 @@
-PLACEHOLDER: Replace with Albert Park Circuit image
-Circuit: Albert Park Circuit, Melbourne, Australia
-Recommended size: 1200x600px
-Format: PNG or JPG
-Include: Track layout or aerial view with lake

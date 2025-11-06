@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Trophy, Award, Calendar, MapPin, Flag, TrendingUp, Loader2 } from 'lucide-react';
-import { ImageWithFallback } from '../components/figma/ImageWithFallback';
+import { ImageWithFallback } from '../components/ImageWithFallback';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { getDriverImage } from '../utils/imageUtils';
 
 export function DriverDetails({ driverId, onNavigate }) {
   const [driver, setDriver] = useState(null);
@@ -105,9 +106,10 @@ export function DriverDetails({ driverId, onNavigate }) {
             style={{ ringColor: `#${driver.teamColor || 'DC0000'}` }}
           >
             <ImageWithFallback
-              src={driver.driverImage || ''}
+              src={driver.driverImage || getDriverImage(driver.driverId || driver.driverCode)}
               alt={driver.fullName || 'Driver'}
               className="w-full h-full object-cover"
+              type="driver"
             />
           </div>
           

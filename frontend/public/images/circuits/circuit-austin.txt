@@ -1,5 +1,0 @@
-PLACEHOLDER: Replace with Circuit of the Americas image
-Circuit: Circuit of the Americas (COTA), Austin, Texas, USA
-Recommended size: 1200x600px
-Format: PNG or JPG
-Include: Distinctive turn 1 elevation and tower

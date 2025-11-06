@@ -2,10 +2,8 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Calendar, MapPin, Clock, Trophy, Loader2, Activity } from 'lucide-react';
 import { fetchSchedule } from '../api/f1Api';
-
-const ImageWithFallback = ({ src, alt, className }) => (
-  <img src={src} alt={alt} className={className} loading="lazy" />
-);
+import { getCircuitImage, getPlaceholderImage } from '../utils/imageUtils';
+import { ImageWithFallback } from '../components/ImageWithFallback';
 
 export function Schedule({ onNavigate }) {
   const [schedule, setSchedule] = useState(null);
@@ -55,11 +53,6 @@ export function Schedule({ onNavigate }) {
     const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
 
     return { days, hours, minutes };
-  };
-
-  // Get circuit image path
-  const getCircuitImage = (circuitId) => {
-    return `/images/circuits/circuit-${circuitId}.txt`;
   };
 
   if (loading) {
@@ -197,9 +190,10 @@ export function Schedule({ onNavigate }) {
               {/* Background Image - must be first and behind */}
               <div className="absolute inset-0 opacity-5 z-0">
                 <ImageWithFallback
-                  src={`https://source.unsplash.com/800x400/?f1,circuit,${race.circuitId}`}
+                  src={getCircuitImage(race.circuitId)}
                   alt={race.circuitName}
                   className="w-full h-full object-cover"
+                  type="circuit"
                 />
               </div>
 
@@ -276,13 +270,11 @@ export function Schedule({ onNavigate }) {
 
               {/* Circuit Image */}
               <div className="mt-4 rounded-lg overflow-hidden relative z-10">
-                <img 
+                <ImageWithFallback
                   src={getCircuitImage(race.circuitId)}
                   alt={race.circuitName}
                   className="w-full h-32 object-contain bg-f1dark/50"
-                  onError={(e) => {
-                    e.target.src = '/images/circuit-placeholder.png';
-                  }}
+                  type="circuit"
                 />
               </div>
             </motion.div>

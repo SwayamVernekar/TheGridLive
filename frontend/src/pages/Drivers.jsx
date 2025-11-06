@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Trophy, TrendingUp, Award, Loader2, Search, Filter } from 'lucide-react';
-import { ImageWithFallback } from '../components/figma/ImageWithFallback';
+import { ImageWithFallback } from '../components/ImageWithFallback';
 import { fetchDrivers } from '../api/f1Api';
+import { getDriverImage } from '../utils/imageUtils';
 
 export function Drivers({ onNavigate }) {
   const [hoveredCard, setHoveredCard] = useState(null);
@@ -200,9 +201,10 @@ export function Drivers({ onNavigate }) {
               <div className="relative w-32 h-32 mx-auto mb-4">
                 <div className="w-full h-full rounded-full overflow-hidden bg-f1dark ring-4 ring-offset-2 ring-offset-transparent">
                   <ImageWithFallback
-                    src={driver.driverImage || ''}
+                    src={driver.driverImage || getDriverImage(driver.driverId || driver.driverCode)}
                     alt={driver.fullName || 'Driver'}
                     className="w-full h-full object-cover"
+                    type="driver"
                   />
                 </div>
 

@@ -1,5 +1,0 @@
-PLACEHOLDER: Replace with Circuit de Spa-Francorchamps image
-Circuit: Circuit de Spa-Francorchamps, Belgium
-Recommended size: 1200x600px
-Format: PNG or JPG
-Include: Legendary circuit through Ardennes forest, Eau Rouge

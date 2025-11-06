@@ -1,5 +1,0 @@
-PLACEHOLDER: Replace with Yas Marina Circuit image
-Circuit: Yas Marina Circuit, Abu Dhabi, UAE
-Recommended size: 1200x600px
-Format: PNG or JPG
-Include: Sunset race circuit through Yas Island

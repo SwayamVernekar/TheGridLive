@@ -1,5 +1,0 @@
-PLACEHOLDER: Replace with Silverstone Circuit image
-Circuit: Silverstone Circuit, Great Britain
-Recommended size: 1200x600px
-Format: PNG or JPG
-Include: Historic home of British GP layout

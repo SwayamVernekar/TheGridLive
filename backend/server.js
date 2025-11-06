@@ -342,22 +342,50 @@ function getTeamColor(constructorId) {
 }
 
 function getTeamLogo(constructorId) {
+  // Map alternative team IDs to standardized names
+  const teamIdMapping = {
+    'red_bull_racing': 'red_bull',
+    'redbull': 'red_bull',
+    'racing_bulls': 'rb',
+    'alphatauri': 'rb',
+    'alpha_tauri': 'rb',
+    'kick_sauber': 'sauber',
+    'alfa_romeo': 'sauber',
+    'alfa': 'sauber',
+    'haas_f1_team': 'haas',
+  };
+  
   const normalized = constructorId.toLowerCase().replace(/\s+/g, '_');
-  // Use local images from public/images directory
-  return `/images/team-${normalized}.png`;
+  const mappedId = teamIdMapping[normalized] || normalized;
+  // Use local images from public/images/teams directory
+  return `/images/teams/team-${mappedId}.png`;
 }
 
 function getCarImage(constructorId, year = CURRENT_YEAR) {
+  // Map alternative team IDs to standardized names
+  const teamIdMapping = {
+    'red_bull_racing': 'red_bull',
+    'redbull': 'red_bull',
+    'racing_bulls': 'rb',
+    'alphatauri': 'rb',
+    'alpha_tauri': 'rb',
+    'kick_sauber': 'sauber',
+    'alfa_romeo': 'sauber',
+    'alfa': 'sauber',
+    'haas_f1_team': 'haas',
+  };
+  
   const normalized = constructorId.toLowerCase().replace(/\s+/g, '_');
+  const mappedId = teamIdMapping[normalized] || normalized;
   // Use local images from public/images/cars directory
-  return `/images/cars/car-${normalized}-${year}.png`;
+  return `/images/cars/car-${mappedId}-${year}.png`;
 }
 
 function getDriverImage(driverCode, driverSurname) {
   // Use driverId format (lowercase with underscores)
   const driverId = (driverSurname || driverCode || '').toLowerCase().replace(/\s+/g, '_');
-  // Use local images from public/images directory
-  return `/images/driver-${driverId}.png`;
+  // Use local images from public/images/drivers directory
+  return `/images/drivers/driver-${driverId}.png`;
 }
 
 // ============================================

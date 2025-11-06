@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Trophy, TrendingUp, TrendingDown, Minus, Loader2, Award, Target, Zap } from 'lucide-react';
 import { fetchDriverStandings } from '../api/f1Api';
+import { ImageWithFallback } from '../components/ImageWithFallback';
+import { getDriverImage } from '../utils/imageUtils';
 
 export function DriverStandings() {
   const [standings, setStandings] = useState([]);
@@ -156,7 +158,7 @@ export function DriverStandings() {
                     'Danish': '🇩🇰',
                     'American': '🇺🇸'
                   };
-                  return flagMap[nationality] || '🏁';
+                  return flagMap[nationality] || '';
                 };
 
                 // Mock detailed stats (wins, podiums, fastest laps, pole positions)
@@ -180,7 +182,12 @@ export function DriverStandings() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <img src={driver.driverImage || ''} alt={driver.fullName || 'Driver'} className="w-10 h-10 rounded-full object-cover" />
+                        <ImageWithFallback 
+                          src={driver.driverImage || getDriverImage(driver.driverId || driver.driverCode)} 
+                          alt={driver.fullName || 'Driver'} 
+                          className="w-10 h-10 rounded-full object-cover"
+                          type="driver"
+                        />
                         <div>
                           <div className="text-f1light font-bold flex items-center gap-2">
                             {driver.fullName || 'Unknown Driver'}

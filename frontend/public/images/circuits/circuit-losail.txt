@@ -1,5 +1,0 @@
-PLACEHOLDER: Replace with Losail International Circuit image
-Circuit: Losail International Circuit, Qatar
-Recommended size: 1200x600px
-Format: PNG or JPG
-Include: Desert circuit with floodlights

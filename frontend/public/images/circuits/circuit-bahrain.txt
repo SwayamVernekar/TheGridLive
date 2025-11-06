@@ -1,5 +1,0 @@
-PLACEHOLDER: Replace with Bahrain International Circuit image
-Circuit: Bahrain International Circuit, Sakhir
-Recommended size: 1200x600px
-Format: PNG or JPG
-Include: Track layout or aerial view of circuit

@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { Trophy, Award, Loader2, BarChart3 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { fetchConstructorStandings } from '../api/f1Api';
+import { ImageWithFallback } from '../components/ImageWithFallback';
+import { getTeamImage } from '../utils/imageUtils';
 
 export function ConstructorStandings() {
   const [standings, setStandings] = useState([]);
@@ -121,31 +123,12 @@ export function ConstructorStandings() {
                     {/* Team */}
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        {team.teamLogo ? (
-                          <img 
-                            src={team.teamLogo} 
-                            alt={team.name}
-                            className="w-12 h-8 object-contain"
-                            onError={(e) => {
-                              e.target.style.display = 'none';
-                              e.target.nextSibling.style.display = 'flex';
-                            }}
-                          />
-                        ) : null}
-                        <div
-                          className="w-12 h-8 rounded flex items-center justify-center"
-                          style={{ 
-                            backgroundColor: `#${team.teamColor || 'ffffff'}`,
-                            display: team.teamLogo ? 'none' : 'flex'
-                          }}
-                        >
-                          <Award
-                            className="w-5 h-5"
-                            style={{
-                              color: team.teamColor?.toLowerCase() === 'ffffff' ? '#000000' : '#FFFFFF',
-                            }}
-                          />
-                        </div>
+                        <ImageWithFallback
+                          src={team.teamLogo || getTeamImage(team.id || team.constructorId)}
+                          alt={team.name}
+                          className="w-12 h-8 object-contain"
+                          type="team"
+                        />
                         <div>
                           <div className="text-f1light font-bold">{team.name}</div>
                           <div className="text-f1light/60 text-xs">{team.nationality}</div>

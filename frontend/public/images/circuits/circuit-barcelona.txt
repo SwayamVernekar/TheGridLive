@@ -1,5 +1,0 @@
-PLACEHOLDER: Replace with Circuit de Barcelona-Catalunya image
-Circuit: Circuit de Barcelona-Catalunya, Spain
-Recommended size: 1200x600px
-Format: PNG or JPG
-Include: Track layout or aerial view

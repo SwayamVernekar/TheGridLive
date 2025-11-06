@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Activity, Loader2, Gauge, Zap, TrendingUp, Calendar, MapPin, Trophy } from 'lucide-react';
 import { fetchSchedule, fetchTelemetry, fetchRaceResults } from '../api/f1Api';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { getCircuitImage, getPlaceholderImage } from '../utils/imageUtils';
+import { ImageWithFallback } from '../components/ImageWithFallback';
 
 export function RaceTelemetry({ season, round, onNavigate }) {
   const [race, setRace] = useState(null);
@@ -48,11 +50,6 @@ export function RaceTelemetry({ season, round, onNavigate }) {
     } finally {
       setLoading(false);
     }
-  };
-
-  // Get circuit image path
-  const getCircuitImage = (circuitId) => {
-    return `/images/circuits/circuit-${circuitId}.txt`;
   };
 
   // Load telemetry for a race
@@ -190,13 +187,11 @@ export function RaceTelemetry({ season, round, onNavigate }) {
 
         {/* Circuit Image */}
         <div className="rounded-lg overflow-hidden">
-          <img 
+          <ImageWithFallback
             src={getCircuitImage(race.circuitId)}
             alt={race.circuitName}
             className="w-full h-48 object-contain bg-f1dark/50"
-            onError={(e) => {
-              e.target.src = '/images/circuit-placeholder.png';
-            }}
+            type="circuit"
           />
         </div>
       </motion.div>

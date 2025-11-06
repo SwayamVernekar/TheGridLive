@@ -1,10 +1,8 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion'; // Using 'framer-motion' for 'motion'
 import { X, Check, Trophy, Users } from 'lucide-react'; // Added Trophy, Users
-
-const ImageWithFallback = ({ src, alt, className }) => (
-  <img src={src} alt={alt} className={className} loading="lazy" />
-);
+import { ImageWithFallback } from './ImageWithFallback';
+import { getDriverImage } from '../utils/imageUtils';
 
 export function FavoriteDriverModal({ isOpen, onSelect }) {
   const [selectedDriver, setSelectedDriver] = useState(null);
@@ -21,7 +19,12 @@ export function FavoriteDriverModal({ isOpen, onSelect }) {
           throw new Error('Failed to fetch drivers');
         }
         const data = await response.json();
-        setDrivers(data.drivers || []);
+        // Normalize driver data and ensure team colors have # prefix
+        const normalizedDrivers = (data.drivers || []).map(driver => ({
+          ...driver,
+          teamColor: driver.teamColor?.startsWith('#') ? driver.teamColor : `#${driver.teamColor || 'DC0000'}`
+        }));
+        setDrivers(normalizedDrivers);
       } catch (err) {
         console.error('Error fetching drivers:', err);
         setError(err.message);
@@ -174,9 +177,10 @@ export function FavoriteDriverModal({ isOpen, onSelect }) {
                       style={{ backgroundColor: `${driver.teamColor}40` }}
                     />
                     <ImageWithFallback
-                      src={`https://source.unsplash.com/400x400/?f1,helmet,professional,${driver.number}`}
-                      alt={driver.name}
+                      src={driver.driverImage || getDriverImage(driver.code || driver.driverId || driver.familyName)}
+                      alt={driver.fullName || driver.name || `${driver.givenName} ${driver.familyName}`}
                       className="w-full h-full object-cover relative z-10"
+                      type="driver"
                     />
                   </div>
 
@@ -190,7 +194,7 @@ export function FavoriteDriverModal({ isOpen, onSelect }) {
 
                   {/* Driver info */}
                   <h3 className="text-f1light font-bold text-sm mb-1 line-clamp-2">
-                    {driver.name}
+                    {driver.fullName || driver.name || `${driver.givenName} ${driver.familyName}`}
                   </h3>
                   <p className="text-f1light/60 text-xs truncate">{driver.team}</p>
 
@@ -245,7 +249,7 @@ export function FavoriteDriverModal({ isOpen, onSelect }) {
                   <p className="text-f1light/80 text-sm">
                     You've selected{' '}
                     <span className="font-bold" style={{ color: selectedDriver.teamColor }}>
-                      {selectedDriver.name}
+                      {selectedDriver.fullName || selectedDriver.name || `${selectedDriver.givenName} ${selectedDriver.familyName}`}
                     </span>{' '}
                     as your favorite!
                   </p>

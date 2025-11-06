@@ -1,5 +1,0 @@
-PLACEHOLDER: Replace this file with the Sauber C45 2025 car image
-Recommended size: 800x400px (2:1 aspect ratio)
-Format: PNG with transparent background preferred
-Source: Official Stake F1 Team Kick Sauber media or press kit
-Note: Team will become Audi F1 Team in 2026

@@ -1,5 +1,0 @@
-PLACEHOLDER: Replace with Marina Bay Street Circuit image
-Circuit: Marina Bay Street Circuit, Singapore
-Recommended size: 1200x600px
-Format: PNG or JPG
-Include: Night race street circuit layout

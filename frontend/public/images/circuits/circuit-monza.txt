@@ -1,5 +1,0 @@
-PLACEHOLDER: Replace with Autodromo Nazionale di Monza image
-Circuit: Autodromo Nazionale di Monza, Italy
-Recommended size: 1200x600px
-Format: PNG or JPG
-Include: Temple of Speed layout through Royal Park

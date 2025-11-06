@@ -3,40 +3,8 @@ import { Trophy, ArrowRight, Gauge, Zap, Wind, TrendingUp, Lightbulb, Target, Ca
 import { motion, AnimatePresence } from 'framer-motion';
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { fetchDriverStandings, fetchSchedule, fetchNews, fetchTelemetry } from '../api/f1Api';
-
-// Image mapping utilities
-const getDriverImage = (driverCode) => {
-  const normalizedCode = driverCode?.toLowerCase().replace('_', '_');
-  return `/images/driver-${normalizedCode}.png`;
-};
-
-const getTeamImage = (constructorName) => {
-  const normalizedName = constructorName?.toLowerCase().replace(/\s+/g, '_');
-  return `/images/team-${normalizedName}.png`;
-};
-
-const ImageWithFallback = ({ src, alt, className, type = 'general' }) => {
-  const [imgSrc, setImgSrc] = useState(src);
-  const [hasError, setHasError] = useState(false);
-
-  const handleError = () => {
-    if (!hasError) {
-      setHasError(true);
-      // Prioritize local images over external URLs
-      if (type === 'driver') {
-        setImgSrc('/images/driver-placeholder.png');
-      } else if (type === 'team' || type === 'car') {
-        setImgSrc('/images/car-placeholder.png');
-      } else if (type === 'news') {
-        setImgSrc('/images/news-placeholder.png');
-      } else {
-        setImgSrc('/images/car-placeholder.png');
-      }
-    }
-  };
-
-  return <img src={imgSrc} alt={alt} className={className} loading="lazy" onError={handleError} />;
-};
+import { getDriverImage, getTeamImage, getPlaceholderImage } from '../utils/imageUtils';
+import { ImageWithFallback } from '../components/ImageWithFallback';
 
 
 export function Home({ onNavigate, favoriteDriver }) {
@@ -211,6 +179,7 @@ export function Home({ onNavigate, favoriteDriver }) {
       const diff = raceDateTime - now;
 
       if (diff <= 0) {
+        // Race has passed, show zeros
         setCountdown({ days: 0, hours: 0, minutes: 0, seconds: 0 });
         return;
       }
@@ -419,7 +388,7 @@ export function Home({ onNavigate, favoriteDriver }) {
                   </motion.button>
                 </div>
 
-                {/* Car Image */}
+                {/* Driver Image */}
                 <div className="relative aspect-video rounded-lg overflow-hidden mb-6">
                   <div
                     className="absolute inset-0"
@@ -433,12 +402,26 @@ export function Home({ onNavigate, favoriteDriver }) {
                     animate={{ scale: 1, x: 0 }}
                     transition={{ type: "spring", stiffness: 100, damping: 20 }}
                   >
-                    <ImageWithFallback
-                      src={getTeamImage(activeDriver.constructorName)}
-                      alt={`${activeDriver.constructorName} car`}
-                      className="max-h-full object-contain drop-shadow-2xl"
-                      type="team"
-                    />
+                    {(() => {
+                      const imageSrc = activeDriver.driverImage && activeDriver.driverImage.startsWith('/images/') 
+                        ? activeDriver.driverImage 
+                        : getDriverImage(
+                            activeDriver.driverId || 
+                            (activeDriver.givenName === 'Max' && activeDriver.familyName === 'Verstappen' 
+                              ? 'max_verstappen' 
+                              : activeDriver.familyName) || 
+                            activeDriver.driverCode
+                          );
+                      console.log('[Home] Driver image src:', imageSrc, 'for driver:', activeDriver.fullName);
+                      return (
+                        <ImageWithFallback
+                          src={imageSrc}
+                          alt={activeDriver.fullName}
+                          className="max-h-full object-contain drop-shadow-2xl"
+                          type="driver"
+                        />
+                      );
+                    })()}
                   </motion.div>
 
                   {/* Speed lines animation */}
@@ -462,24 +445,28 @@ export function Home({ onNavigate, favoriteDriver }) {
                 {/* Driver Stats Section */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <QuickStatCard
+                    key="points"
                     icon={<Trophy />}
                     label="Points"
                     value={activeDriver.points || 0}
                     color={activeDriver.teamColor || '#DC0000'}
                   />
                   <QuickStatCard
+                    key="wins"
                     icon={<Award />}
                     label="Wins"
                     value={activeDriver.wins || 0}
                     color={activeDriver.teamColor || '#DC0000'}
                   />
                   <QuickStatCard
+                    key="position"
                     icon={<TrendingUp />}
                     label="Position"
                     value={`P${activeDriver.position || '?'}`}
                     color={activeDriver.teamColor || '#DC0000'}
                   />
                   <QuickStatCard
+                    key="number"
                     icon={<Target />}
                     label="Number"
                     value={`#${activeDriver.driverNumber || activeDriver.number || '?'}`}

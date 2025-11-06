@@ -2,10 +2,8 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Trophy, MapPin, User, Cog, Calendar, Users, Loader2 } from 'lucide-react';
 import { fetchTeamDetails } from '../api/f1Api';
-
-const ImageWithFallback = ({ src, alt, className }) => (
-  <img src={src} alt={alt} className={className} loading="lazy" />
-);
+import { ImageWithFallback } from '../components/ImageWithFallback';
+import { getTeamImage, getCarImage, getDriverImage } from '../utils/imageUtils';
 
 // Intel Card Component 
 function IntelCard({ icon: Icon, label, value, color, delay }) {
@@ -123,9 +121,10 @@ export function TeamDetails({ teamId, onNavigate }) {
         {/* Background Image */}
         <div className="absolute inset-0 h-96">
           <ImageWithFallback
-            src={`https://source.unsplash.com/1200x400/?f1,garage,pitlane,${team.id}`}
+            src={getTeamImage(team.id)}
             alt={team.name}
             className="w-full h-full object-cover opacity-30"
+            type="team"
           />
           <div
             className="absolute inset-0"
@@ -148,7 +147,12 @@ export function TeamDetails({ teamId, onNavigate }) {
               animate={{ scale: 1, rotate: 0 }}
               transition={{ type: 'spring', stiffness: 100 }}
             >
-              <img src={team.teamLogo} alt={team.name} className="w-full h-full object-contain" />
+              <ImageWithFallback 
+                src={team.teamLogo} 
+                alt={team.name} 
+                className="w-full h-full object-contain"
+                type="team"
+              />
             </motion.div>
           )}
 
@@ -301,9 +305,10 @@ export function TeamDetails({ teamId, onNavigate }) {
                 transition={{ type: 'spring', stiffness: 50 }}
               >
                 <ImageWithFallback
-                  src={team.carImage || `https://source.unsplash.com/1000x500/?f1car,modern,${team.id + selectedCarYear}`}
+                  src={team.carImage || getCarImage(team.id, selectedCarYear)}
                   alt={`${team.name} ${selectedCarYear} Car`}
                   className="max-h-96 object-contain drop-shadow-2xl"
+                  type="car"
                 />
               </motion.div>
             </div>
@@ -369,9 +374,10 @@ export function TeamDetails({ teamId, onNavigate }) {
                     style={{ borderColor: `#${team.teamColor}` }}
                   >
                     <ImageWithFallback
-                      src={driver.driverImage || `https://source.unsplash.com/400x400/?f1driver,helmet,portrait,${driver.number}`}
+                      src={driver.driverImage || getDriverImage(driver.driverId || driver.driverCode)}
                       alt={driver.fullName}
                       className="w-full h-full object-cover"
+                      type="driver"
                     />
                   </div>
 

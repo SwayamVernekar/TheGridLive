@@ -1,5 +1,0 @@
-PLACEHOLDER: Replace with Circuit de Monaco image
-Circuit: Circuit de Monaco, Monte Carlo, Monaco
-Recommended size: 1200x600px
-Format: PNG or JPG
-Include: Iconic street circuit through Monaco harbor

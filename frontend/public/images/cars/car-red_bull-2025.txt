@@ -1,4 +1,0 @@
-PLACEHOLDER: Replace this file with the Red Bull Racing RB21 2025 car image
-Recommended size: 800x400px (2:1 aspect ratio)
-Format: PNG with transparent background preferred
-Source: Official Red Bull Racing media or press kit

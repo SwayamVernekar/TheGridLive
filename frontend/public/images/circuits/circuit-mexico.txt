@@ -1,5 +1,0 @@
-PLACEHOLDER: Replace with Autodromo Hermanos Rodriguez image
-Circuit: Autódromo Hermanos Rodríguez, Mexico City, Mexico
-Recommended size: 1200x600px
-Format: PNG or JPG
-Include: High altitude circuit with stadium section

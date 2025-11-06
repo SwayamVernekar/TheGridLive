@@ -2,10 +2,7 @@ import { useState, useEffect } from 'react';
 import { Calendar, Tag, ExternalLink, AlertCircle, Search, Filter } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { fetchNews } from '../api/f1Api';
-
-const ImageWithFallback = ({ src, alt, className }) => (
-  <img src={src} alt={alt} className={className} loading="lazy" />
-);
+import { ImageWithFallback } from '../components/ImageWithFallback';
 
 export function News() {
   const [newsArticles, setNewsArticles] = useState([]);
@@ -247,6 +244,7 @@ export function News() {
                 src={article.urlToImage || article.image || `/images/news-placeholder.png`}
                 alt={article.title}
                 className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                type="news"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
               <div className="absolute top-3 right-3">

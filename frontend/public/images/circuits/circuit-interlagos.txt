@@ -1,5 +1,0 @@
-PLACEHOLDER: Replace with Autodromo Jose Carlos Pace image
-Circuit: Autódromo José Carlos Pace, Interlagos, São Paulo, Brazil
-Recommended size: 1200x600px
-Format: PNG or JPG
-Include: Counter-clockwise layout through hills

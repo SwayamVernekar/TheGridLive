@@ -55,11 +55,11 @@ def get_driver_standings():
     - year: Season year (default: current year)
     """
     try:
-        year = request.args.get('year', datetime.now().year)
+        year = int(request.args.get('year', datetime.now().year))
         logger.info(f"Fetching driver standings for {year}")
         
         # Get the latest completed race
-        schedule = fastf1.get_event_schedule(int(year))
+        schedule = fastf1.get_event_schedule(year)
         now = pd.Timestamp.now()
         
         # Find the most recent completed race
@@ -78,7 +78,7 @@ def get_driver_standings():
         logger.info(f"Latest race: {event_name} (Round {round_number})")
         
         # Load the session
-        session = fastf1.get_session(int(year), round_number, 'R')
+        session = fastf1.get_session(year, round_number, 'R')
         session.load()
         
         # Get results
@@ -101,7 +101,7 @@ def get_driver_standings():
             })
         
         return jsonify({
-            'season': int(year),
+            'season': year,
             'lastRace': event_name,
             'round': int(round_number),
             'standings': standings
@@ -123,11 +123,11 @@ def get_constructor_standings():
     - year: Season year (default: current year)
     """
     try:
-        year = request.args.get('year', datetime.now().year)
+        year = int(request.args.get('year', datetime.now().year))
         logger.info(f"Fetching constructor standings for {year}")
         
         # Get the latest completed race
-        schedule = fastf1.get_event_schedule(int(year))
+        schedule = fastf1.get_event_schedule(year)
         now = pd.Timestamp.now()
         
         completed_races = schedule[schedule['EventDate'] < now]
@@ -142,7 +142,7 @@ def get_constructor_standings():
         round_number = latest_race['RoundNumber']
         
         # Load the session
-        session = fastf1.get_session(int(year), round_number, 'R')
+        session = fastf1.get_session(year, round_number, 'R')
         session.load()
         
         # Get results and aggregate by team
@@ -176,7 +176,7 @@ def get_constructor_standings():
             team['position'] = idx + 1
         
         return jsonify({
-            'season': int(year),
+            'season': year,
             'standings': standings
         })
         
@@ -200,7 +200,7 @@ def get_driver_telemetry(driver_abbr):
     - session: Session type (FP1, FP2, FP3, Q, R) (default: R)
     """
     try:
-        year = request.args.get('year', datetime.now().year)
+        year = int(request.args.get('year', datetime.now().year))
         event = request.args.get('event', None)
         session_type = request.args.get('session', 'R')
         
@@ -208,7 +208,7 @@ def get_driver_telemetry(driver_abbr):
         
         # If no event specified, get the latest
         if not event:
-            schedule = fastf1.get_event_schedule(int(year))
+            schedule = fastf1.get_event_schedule(year)
             now = pd.Timestamp.now()
             completed_races = schedule[schedule['EventDate'] < now]
             
@@ -271,11 +271,11 @@ def get_drivers():
     - year: Season year (default: current year)
     """
     try:
-        year = request.args.get('year', datetime.now().year)
+        year = int(request.args.get('year', datetime.now().year))
         logger.info(f"Fetching drivers list for {year}")
         
         # Get the latest completed race
-        schedule = fastf1.get_event_schedule(int(year))
+        schedule = fastf1.get_event_schedule(year)
         now = pd.Timestamp.now()
         
         completed_races = schedule[schedule['EventDate'] < now]
@@ -331,10 +331,10 @@ def get_schedule():
     - year: Season year (default: current year)
     """
     try:
-        year = request.args.get('year', datetime.now().year)
+        year = int(request.args.get('year', datetime.now().year))
         logger.info(f"Fetching schedule for {year}")
         
-        schedule = fastf1.get_event_schedule(int(year))
+        schedule = fastf1.get_event_schedule(year)
         
         events = []
         for idx, event in schedule.iterrows():

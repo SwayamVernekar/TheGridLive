@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { User, Save, Edit2, Check, LogOut, LogIn } from 'lucide-react';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5002';
+
 export function Profile({ onNavigate }) {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
@@ -33,7 +35,7 @@ export function Profile({ onNavigate }) {
 
   const fetchUserProfile = async (userEmail) => {
     try {
-      const response = await fetch(`http://localhost:5002/api/users/${userEmail}`);
+      const response = await fetch(`${API_BASE_URL}/api/users/${userEmail}`);
       if (response.ok) {
         const userData = await response.json();
         // Update state with server data if available
@@ -71,7 +73,7 @@ export function Profile({ onNavigate }) {
 
       // If email is provided, save to backend
       if (email) {
-        const response = await fetch('http://localhost:5002/api/users', {
+        const response = await fetch(`${API_BASE_URL}/api/users`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

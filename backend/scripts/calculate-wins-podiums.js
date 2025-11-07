@@ -52,9 +52,15 @@ async function calculateWinsAndPodiums() {
     console.log('🔍 Processing lap files to calculate wins and podiums...\n');
 
     for (const race of completedRaces) {
-      const lapFile = path.join(lapsDir, `${race.raceName}_laps.csv`);
+      // Try different file naming patterns
+      const possibleFiles = [
+        path.join(lapsDir, `${race.raceName}_Race_laps.csv`),
+        path.join(lapsDir, `${race.raceName}_laps.csv`)
+      ];
       
-      if (!fs.existsSync(lapFile)) {
+      const lapFile = possibleFiles.find(f => fs.existsSync(f));
+      
+      if (!lapFile) {
         console.log(`⚠️  No lap data for ${race.raceName}`);
         continue;
       }

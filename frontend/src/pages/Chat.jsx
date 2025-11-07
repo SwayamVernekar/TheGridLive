@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { MessageSquare, Send, Users } from 'lucide-react';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5002';
+
 export function Chat() {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
@@ -24,14 +26,14 @@ export function Chat() {
     try {
       setIsLoadingMessages(true);
       // First, ensure the global chat room exists
-      const roomsResponse = await fetch('http://localhost:5002/api/chat/rooms');
+      const roomsResponse = await fetch(`${API_BASE_URL}/api/chat/rooms`);
       const rooms = await roomsResponse.json();
       
       let globalRoom = rooms.find(room => room.name === 'Global F1 Chat');
       
       if (!globalRoom) {
         // Create the global chat room
-        const createResponse = await fetch('http://localhost:5002/api/chat/rooms', {
+        const createResponse = await fetch(`${API_BASE_URL}/api/chat/rooms`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -45,7 +47,7 @@ export function Chat() {
       }
 
       // Fetch messages from the global room
-      const messagesResponse = await fetch(`http://localhost:5002/api/chat/rooms/${globalRoom._id}/messages`);
+      const messagesResponse = await fetch(`${API_BASE_URL}/api/chat/rooms/${globalRoom._id}/messages`);
       const messagesData = await messagesResponse.json();
       
       setMessages(messagesData || []);
@@ -87,7 +89,7 @@ export function Chat() {
 
     try {
       // Get the global room ID
-      const roomsResponse = await fetch('http://localhost:5002/api/chat/rooms');
+      const roomsResponse = await fetch(`${API_BASE_URL}/api/chat/rooms`);
       const rooms = await roomsResponse.json();
       const globalRoom = rooms.find(room => room.name === 'Global F1 Chat');
 
@@ -97,7 +99,7 @@ export function Chat() {
       }
 
       // Send message
-      const response = await fetch(`http://localhost:5002/api/chat/rooms/${globalRoom._id}/messages`, {
+      const response = await fetch(`${API_BASE_URL}/api/chat/rooms/${globalRoom._id}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

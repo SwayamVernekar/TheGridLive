@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: thegridlive-backend
+    runtime: node
+    env: node
+    region: oregon
+    plan: free
+    branch: mongo-backend
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 18.17.0
+      - key: MONGO_URI
+        sync: false
+      - key: FASTF1_API_URL
+        value: http://localhost:5003/api/v1
+      - key: NEWS_API_KEY
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+    healthCheckPath: /api/health
